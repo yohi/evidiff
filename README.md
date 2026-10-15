@@ -29,3 +29,5 @@ G0 (live ChatGPT Web + Gemini Web Skill-to-MCP orchestration) is unverified. Do 
 ## Design Revision R1 (v0.2, 2026-10-16)
 
 Independent design review of PR #1 found 4 High + 4 Medium issues. The proposed correction and decision mapping are in [docs/REVISION_R1_20261016.md](docs/REVISION_R1_20261016.md). The v0.2 Schema, read-only semantic validation Receipt and redaction safeguards supersede earlier examples. **Not independently accepted; not implemented or deployed.** ChatGPT plugin root is [chatgpt/](chatgpt/) with .codex-plugin/plugin.json and .mcp.json.
+
+**R1 follow-up:** MCP tool sample version normalized to v0.2; Gemini Gem fallback instructions include the server-side Receipt requirement.

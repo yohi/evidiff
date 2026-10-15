@@ -24,11 +24,11 @@
 }
 ```
 
-出力例（数値やSHAは例示）：
+出力例（数値やSHAは例示、**PARTIALでありSnapshot READYを証明しない**）：
 
 ```json
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "request_id": "req-example",
   "status": "PARTIAL",
   "snapshot_id": "sha256:example-placeholder",
@@ -39,7 +39,7 @@
     "merge_base_sha": "cccccccccccccccccccccccccccccccccccccccc"
   },
   "file_count_reported": 3,
-  "diff_integrity": "NOT_YET_VERIFIED",
+  "diff_integrity": "UNVERIFIED",
   "provenance": [{"source": "github_rest", "resource": "pulls/42"}],
   "limitations": []
 }
