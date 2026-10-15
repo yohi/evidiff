@@ -92,7 +92,8 @@
           "finding_id",
           "fingerprint_version",
           "fingerprint",
-          "identity_status"
+          "identity_status",
+          "canonical_finding_id"
         ],
         "properties": {
           "finding_id": {
@@ -103,8 +104,15 @@
             "const": "v1"
           },
           "fingerprint": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$"
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "identity_status": {
             "enum": [
@@ -112,8 +120,70 @@
               "CANONICAL",
               "NEEDS_ADJUDICATION"
             ]
+          },
+          "canonical_finding_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "identity_status": {
+                  "const": "CANONICAL"
+                }
+              },
+              "required": [
+                "identity_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "fingerprint": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "canonical_finding_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "identity_status": {
+                  "enum": [
+                    "NEEDS_ADJUDICATION",
+                    "PROVISIONAL"
+                  ]
+                }
+              },
+              "required": [
+                "identity_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "fingerprint": {
+                  "type": "null"
+                },
+                "canonical_finding_id": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "signature": {
@@ -127,5 +197,52 @@
         }
       ]
     }
-  }
+  },
+  "$id": "https://evidiff.invalid/schemas/validated-review-receipt.v0.2.json",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "review_status": {
+            "const": "COMPLETE"
+          }
+        },
+        "required": [
+          "review_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "valid": {
+            "const": true
+          },
+          "reason_codes": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "valid": {
+            "const": true
+          }
+        },
+        "required": [
+          "valid"
+        ]
+      },
+      "then": {
+        "properties": {
+          "review_status": {
+            "const": "COMPLETE"
+          },
+          "reason_codes": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ]
 }

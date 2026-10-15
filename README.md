@@ -31,3 +31,8 @@ G0 (live ChatGPT Web + Gemini Web Skill-to-MCP orchestration) is unverified. Do 
 Independent design review of PR #1 found 4 High + 4 Medium issues. The proposed correction and decision mapping are in [docs/REVISION_R1_20261016.md](docs/REVISION_R1_20261016.md). The v0.2 Schema, read-only semantic validation Receipt and redaction safeguards supersede earlier examples. **Not independently accepted; not implemented or deployed.** ChatGPT plugin root is [chatgpt/](chatgpt/) with .codex-plugin/plugin.json and .mcp.json.
 
 **R1 follow-up:** MCP tool sample version normalized to v0.2; Gemini Gem fallback instructions include the server-side Receipt requirement.
+
+
+## R2 limited correction — independent recheck
+
+R1-IR-001..005 are addressed by a second design/contract proposal: [R2 design correction](docs/REVISION_R2_20261016.md). Added Draft2020-12 preflight, LEFT/FILE_SPAN delivered-line checks, required Codex plugin fields, a nested Receipt envelope, and unambiguous fingerprint identity rules. New offline Node/Python tests and [CI](.github/workflows/offline-contracts.yml) do not constitute deployed MCP or independently accepted closure.

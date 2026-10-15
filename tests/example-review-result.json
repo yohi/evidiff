@@ -3,64 +3,33 @@
   "snapshot_id": "sha256:fixture",
   "model_family": "chatgpt",
   "review_policy": "review-policy-v0.2",
-  "review_status": "PARTIAL",
+  "review_status": "COMPLETE",
   "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "merge_base_sha": "cccccccccccccccccccccccccccccccccccccccc",
   "reviewed_paths": [
-    "src/a.ts",
-    "src/b.ts"
+    "a.ts",
+    "b.ts"
   ],
   "review_attestations": [
     {
-      "path": "src/a.ts",
+      "path": "a.ts",
       "review_proof_refs": [
-        "ev:fixture:a"
+        "ev-a.ts"
       ],
-      "reviewed_scope": "changed logic",
+      "reviewed_scope": "all changed logic",
       "analysis_complete": true
     },
     {
-      "path": "src/b.ts",
+      "path": "b.ts",
       "review_proof_refs": [
-        "ev:fixture:b"
+        "ev-b.ts"
       ],
-      "reviewed_scope": "caller",
+      "reviewed_scope": "all changed logic",
       "analysis_complete": true
     }
   ],
-  "findings": [
-    {
-      "finding_id": "F-001",
-      "title": "入力条件の誤処理",
-      "severity": "high",
-      "category": "correctness",
-      "verification": "CONFIRMED_SOURCE",
-      "lifecycle": "ACTIVE",
-      "failure_scenario": "重複パラメータで分岐する",
-      "causal_chain": "不正入力が正常入力として扱われる",
-      "impact": "意図しない処理",
-      "recommendation": "不正入力を拒否",
-      "root_cause_key": "INPUT_VALIDATION_MISSING",
-      "trigger_class": "DUPLICATE_KEY",
-      "evidence": [
-        {
-          "kind": "DIFF_LINE",
-          "path": "src/a.ts",
-          "previous_path": null,
-          "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "side": "RIGHT",
-          "line": 42,
-          "hunk_id": "hunk:fixture",
-          "evidence_ref": "ev:fixture:a",
-          "redaction_state": "NONE"
-        }
-      ],
-      "counterevidence": []
-    }
-  ],
-  "limitations": [
-    "src/c.ts source unavailable"
-  ],
-  "evidence_ledger_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  "findings": [],
+  "limitations": [],
+  "evidence_ledger_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
 }

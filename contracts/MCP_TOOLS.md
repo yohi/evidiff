@@ -140,3 +140,12 @@ MCPは各モデルが「読んだ」かどうかを正確に把握できない�
 **Fingerprints:** canonical v1 from repo_id, verified path alias + symbol identity, enumerated category, controlled root cause and trigger; no line, prose or model name. No auto-resolve/reopen without separate registry proof.
 
 See docs/REVISION_R1_20261016.md and tests/ACCEPTANCE_MATRIX.md. The original sections 8–9 are retained as historic extension/API references, not current tool count.
+
+
+## R2 authoritative tool contract (supersedes conflicting older examples)
+
+validate_review_result's successful MCP response MUST have **outer** fields schema_version, request_id, snapshot_id, status=SUCCESS, provenance[], limitations[] and result, where result validates against validated-review-receipt.schema.json. For error response, use status=ERROR and result=null with generic nonsecret limitations. Validate outer against validation-tool-response.schema.json.
+
+The server MUST validate Snapshot and ReviewResult with strict JSON Schema Draft 2020-12 (required and additionalProperties) before semantic validation. A schema failure never produces COMPLETE. For normal non-renamed modified/deleted DIFF_LINE LEFT evidence, oldPath=path; for verified rename, oldPath=previous_path. FILE_SPAN's claimed interval must be within lines **delivered** in the referenced ledger event and match pinned commit, content digest and redaction state; the whole-file length is insufficient.
+
+A complete Receipt must be server-authored and tied to the authenticated user's snapshot, not model-generated. For ambiguous Finding identity, fingerprint and canonical_finding_id are null, with status NEEDS_ADJUDICATION or PROVISIONAL. See docs/REVISION_R2_20261016.md.

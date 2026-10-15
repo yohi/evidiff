@@ -1,3 +1,7 @@
+interface:
+  display_name: "Evidiff PR Review"
+  short_description: "Evidence-based PR reviews"
+  default_prompt: "Review this GitHub PR URL using the connected read-only Evidiff MCP, verify evidence, and report limitations."
 dependencies:
   tools:
     - type: "mcp"

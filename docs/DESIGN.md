@@ -201,3 +201,7 @@ Findingはstable fingerprintを保持し、ACTIVE/RESOLVED/REOPENEDを別フィ�
 ## 13. R1 correction precedence
 
 [REVISION_R1_20261016.md](REVISION_R1_20261016.md) がF-001〜008の規範改訂、Snapshot/ReviewResult v0.2、検証Receipt、Secret Redaction、Fingerprint v1を定義する。サーバーValidator未実装、G0〜G4未実証。旧節と衝突する記述はR1優先。
+
+## 14. R2 independent review correction
+
+The five residual R1 independent findings are addressed in [REVISION_R2_20261016.md](REVISION_R2_20261016.md), which supersedes R1 only for schema-first validation, immutable LEFT/FILE_SPAN evidence delivery, required ChatGPT package metadata, the tool Receipt envelope, and ambiguous fingerprint identity. All G0–G4 runtime gates remain unproved.

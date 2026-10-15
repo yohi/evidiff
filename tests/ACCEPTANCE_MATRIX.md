@@ -95,3 +95,25 @@
 | R1-18 | packaged ChatGPT Plugin + agents/openai.yaml | G0 Web deployment required |
 
 Document/schema checks do not replace server validation, G0–G4 or independent review.
+
+
+## R2 expanded negative acceptance cases (not substitutes for G0–G4)
+
+| ID | Input | Required |
+|---|---|---|
+| R2-01 | Missing required Snapshot.repository or ReviewResult.model_family | Schema FAIL before semantics |
+| R2-02 | Extra input key or type mismatch | Schema FAIL |
+| R2-03 | normal LEFT/RIGHT and deleted LEFT, previous_path=null | Valid pinned anchor |
+| R2-04 | added LEFT, deleted RIGHT, invalid rename oldPath | Reject |
+| R2-05 | FILE_SPAN cites 50–60 but delivered 1–10 of 100 total | Reject |
+| R2-06 | FILE_SPAN wrong pinned ref commit or invalid digest | Reject |
+| R2-07 | Plugin author/interface and Skill agent interface | Parsed, required fields present |
+| R2-08 | Outer response lacks request_id or successful result is null | Schema FAIL |
+| R2-09 | Ambiguous fingerprint accompanied by canonical ID/hash | Schema FAIL |
+| R2-10 | CANONICAL identity has nonnull confirmed ID and hash | Structural pass; provenance still unproved |
+
+Offline test commands:
+- python -m unittest discover -s tests -p test_contract_schema.py -v
+- node --test tests/semantic-validator.spec.mjs
+
+Both are local/synthetic-contract verification only. CI must be independently observed.
