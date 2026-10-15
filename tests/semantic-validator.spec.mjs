@@ -588,3 +588,82 @@ test('F01-NEW-001 modifying own sealed event still invalidates review',()=>{
   assert.equal(r.valid,false);
   assert.ok(r.reason_codes.includes('DELIVERY_DIGEST_MISMATCH'),JSON.stringify(r));
 });
+
+
+// F01-R3-NEW-001 — nested accessor coercion before canonical validation.
+test('T13 delivery_seq.valueOf getter is never invoked by sorting',()=>{
+  const f=fixture();
+  let calls=0;
+  f.ledger['ev-a'].delivery_seq={
+    get valueOf(){calls++;return ()=>1;}
+  };
+  assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+  const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(result.valid,false,JSON.stringify(result));
+  assert.notEqual(result.review_status,'COMPLETE');
+  assert.ok(result.reason_codes.includes('DELIVERY_LEDGER_INVALID'),JSON.stringify(result));
+  assert.equal(calls,0,'delivery_seq.valueOf getter executed');
+});
+test('T14 exposed_digest.toString getter is never invoked by regexp',()=>{
+  const f=fixture();
+  let calls=0;
+  f.ledger['ev-a'].exposed_digest={
+    get toString(){calls++;return ()=>'a'.repeat(64);}
+  };
+  assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+  const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(result.valid,false,JSON.stringify(result));
+  assert.notEqual(result.review_status,'COMPLETE');
+  assert.ok(result.reason_codes.includes('DELIVERY_LEDGER_INVALID'),JSON.stringify(result));
+  assert.equal(calls,0,'exposed_digest.toString getter executed');
+});
+test('nested accessor converting via Symbol.toPrimitive is not called',()=>{
+  const f=fixture();
+  let calls=0;
+  f.ledger['ev-b'].delivery_seq={
+    get [Symbol.toPrimitive](){calls++;return ()=>2;}
+  };
+  const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(result.valid,false,JSON.stringify(result));
+  assert.ok(result.reason_codes.includes('DELIVERY_LEDGER_INVALID'));
+  assert.equal(calls,0,'Symbol.toPrimitive getter executed');
+});
+test('non-string exposed digest with callable coercion is rejected without invocation',()=>{
+  for(const setup of [
+    c=>({valueOf(){c.n++;return 'b'.repeat(64)}}),
+    c=>({toString(){c.n++;return 'b'.repeat(64)}}),
+    c=>({get toString(){c.n++;throw Error('getter must not run')}})
+  ]){
+    const f=fixture(),calls={n:0};
+    f.ledger['ev-b'].exposed_digest=setup(calls);
+    assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+    const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+    assert.equal(result.valid,false);
+    assert.ok(result.reason_codes.includes('DELIVERY_LEDGER_INVALID'));
+    assert.equal(calls.n,0,'coercion function/accessor was invoked');
+  }
+});
+test('delivery_seq strings, fractional numbers and unsafe integers fail closed',()=>{
+  for(const invalid of ['1',1.5,Number.MAX_SAFE_INTEGER+1,NaN,Infinity,null]){
+    const f=fixture();
+    f.ledger['ev-a'].delivery_seq=invalid;
+    assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+    const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+    assert.equal(result.valid,false);
+    assert.ok(result.reason_codes.includes('DELIVERY_LEDGER_INVALID'));
+  }
+});
+test('nested extra metadata getters are rejected before sorting or regex',()=>{
+  for(const field of ['valueOf','toString']){
+    const f=fixture();let calls=0;
+    Object.defineProperty(f.ledger['ev-a'],'metadata',{
+      value:{get [field](){calls++;return ()=>1;}},
+      configurable:true,enumerable:true
+    });
+    assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+    const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+    assert.equal(r.valid,false);
+    assert.ok(r.reason_codes.includes('DELIVERY_LEDGER_INVALID'));
+    assert.equal(calls,0,'nested metadata getter invoked');
+  }
+});

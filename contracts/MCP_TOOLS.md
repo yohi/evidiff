@@ -238,3 +238,14 @@ This is the normative limited correction for two residual findings in the fresh 
 Add negative cases for hidden root records, Symbol keys, enumerable/nonenumerable root getters (including a throwing getter), abnormal root prototypes, inherited ghost attestation and inherited PR_LEVEL Finding proof. Include positive control for ordinary and null-prototype own-entry ledgers, plus own sealed-record mutation detection. Ensure no attacker-provided getter executes and all invalid roots fail closed before evidence lookup.
 
 **Status:** proposal-only limited correction; independent F01 fresh recheck and exact-head CI required. F02 independent golden oracle is unchanged. G0-G4 NOT_PROVEN, no Private Repo integration or deployment authorized.
+
+## F01-R3-NEW-001 — Precanonical coercion and nested getter guard
+
+Limited corrective contract after independent review of fixed HEAD 41d27e7e7ea31aa2dc7867ad1374de1da2ec6a56:
+
+- After checking ledger-root and direct event own property descriptors, recursively canonical-validate each detached event record **before any sort, regex, arithmetic or value-dependent coercion**. Nested getters, Symbols, exotic objects, non-JSON values, sparse arrays and hidden properties must cause immediate rejection without ordinary JS getter execution.
+- Require Number.isSafeInteger(delivery_seq), delivery_seq >= 1; typeof exposed_digest === "string" plus hex64; and primitive types for snapshot/head IDs, delivered and redaction state BEFORE sorting. The comparator receives only safe integers. RegExp.test receives only validated strings. No implicit ToPrimitive/ToString on unvalidated values.
+- Continue to derive digest, epoch and one evidence Map from the same detached canonical payload. Failure produces deliveryDigest=null and DELIVERY_LEDGER_INVALID; never COMPLETE. This does not assert malicious Proxy trap resistance.
+- Negative tests T13/T14 assert valueOf/toString getter call counters **zero**, not just PARTIAL verdict. Include Symbol.toPrimitive, callable coercion, invalid sequencing/digest primitive values and nested metadata accessor controls.
+
+Existing golden-vector design, R2 identity/receipt rules, ledger boundary and G0-G4 pending status are unchanged. Offline reference proposal only; fresh independent limited recheck required.

@@ -133,14 +133,28 @@ function prepareDeliveryLedger(ledger,snapshot) {
       const ownRecord=ownDataOnly(record);
       if(Object.hasOwn(ownRecord,'id'))return null;
       ownRecord.id=id;
+      // Validate the entire nested record BEFORE sorting, coercion, regex or
+      // other field-dependent processing. canonicalJSON reads only own data
+      // descriptors, so ordinary nested getters are rejected without running.
+      canonicalJSON(ownRecord);
+      // Keep explicit primitive checks even after canonical validation:
+      // no valueOf/toString coercion is permitted on sequencing/digest fields.
+      if(!Number.isSafeInteger(ownRecord.delivery_seq) ||
+         ownRecord.delivery_seq<1 ||
+         typeof ownRecord.exposed_digest!=='string' ||
+         !/^[a-f0-9]{64}$/.test(ownRecord.exposed_digest) ||
+         typeof ownRecord.snapshot_id!=='string' ||
+         typeof ownRecord.head_sha!=='string' ||
+         typeof ownRecord.delivered!=='boolean' ||
+         typeof ownRecord.redaction_state!=='string')return null;
       entries.push(ownRecord);
     }
+    // Comparator now only receives already validated, safe integer values.
     entries.sort((a,b)=>a.delivery_seq-b.delivery_seq);
     if(!entries.every((e,i)=>
-        Number.isSafeInteger(e.delivery_seq) && e.delivery_seq===i+1 &&
+        e.delivery_seq===i+1 &&
         e.delivered===true && e.snapshot_id===snapshot.snapshot_id &&
         e.head_sha===snapshot.head_sha &&
-        /^[a-f0-9]{64}$/.test(e.exposed_digest||'') &&
         ['NONE','REDACTED','BLOCKED'].includes(e.redaction_state)))return null;
     const payload={
       digest_domain:'evidiff.delivery.v2',

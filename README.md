@@ -57,3 +57,7 @@ Sparse arrays and non-JSON record properties are now fail-closed in the canonica
 ### F01-NEW-001/002 root ledger follow-up
 
 The F01 independent recheck detected inherited, unsealed evidence and root getter hazards. The offline validator now checks ledger-root own property descriptors/prototype, builds a detached canonical evidence Map once, and uses it for both delivery digests and Finding/attestation lookup. See contracts/MCP_TOOLS.md and the negative regression tests. Draft PR remains unmerged; G0-G4 and production MCP safeguards remain unproven.
+
+### F01-R3-NEW-001 limited correction
+
+Detached delivery records are now deep canonical-validated and type-checked before numeric sorting or digest regex processing. Nested valueOf/toString getter side effects are forbidden and regression-tested. F01-NEW-001 received limited independent acceptance, while F01-NEW-002 remains pending fresh recheck. Draft PR and G0-G4 pending state are unchanged.

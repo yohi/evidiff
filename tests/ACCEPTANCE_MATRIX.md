@@ -186,3 +186,17 @@ The independent oracle values were calculated from manually authored strings usi
 | F01-ROOT-10 | Model uses built-in inherited key as evidence_ref | Lookup denied |
 
 These are synthetic offline tests, not production authorization/ledger authenticity evidence.
+
+## F01-R3-NEW-001 — Negative coercion preflight gates
+
+| Case | Unsafe input | Required |
+|---|---|---|
+| T13 | delivery_seq with nested valueOf getter | getter calls 0; reject before sorting; NOT COMPLETE |
+| T14 | exposed_digest with nested toString getter | getter calls 0; reject before regex; NOT COMPLETE |
+| T15 | Nested Symbol.toPrimitive accessor | getter calls 0; reject |
+| T16 | Non-string digest with callable toString/valueOf or throwing getter | side effects 0; reject |
+| T17 | delivery_seq string, fraction, unsafe integer, NaN, Infinity, null | reject, no arithmetic coercion |
+| T18 | Arbitrary nested event metadata getter | side effects 0; reject |
+| T19 | Previously accepted plain sealed delivery event | retain positive COMPLETE and golden vectors |
+
+All tests are offline Node reference tests; no runtime MCP/storage/OAuth/Proxy guarantee.
