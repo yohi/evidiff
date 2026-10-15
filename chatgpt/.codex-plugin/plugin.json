@@ -1,0 +1,14 @@
+{
+  "name": "github-pr-independent-review",
+  "version": "0.2.0",
+  "description": "Draft: read-only evidence-grounded PR code review for ChatGPT Web",
+  "repository": "https://github.com/yohi/evidiff",
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "keywords": [
+    "github",
+    "pr",
+    "code-review"
+  ]
+}

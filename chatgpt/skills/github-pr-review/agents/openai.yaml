@@ -1,0 +1,7 @@
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "pr_evidence"
+      description: "Read-only GitHub PR evidence and server-side semantic validation"
+      transport: "streamable_http"
+      url: "https://your-mcp-host.example.invalid/mcp"

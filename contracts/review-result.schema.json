@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/schemas/review-result.v0.1.json",
-  "title": "ReviewResult v0.1 — proposed",
+  "$id": "https://evidiff.invalid/schemas/review-result.v0.2.json",
+  "title": "Model-submitted review proposal v0.2 — never authoritative until validated",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,14 +11,17 @@
     "review_policy",
     "review_status",
     "head_sha",
-    "coverage",
+    "base_sha",
+    "merge_base_sha",
     "reviewed_paths",
+    "review_attestations",
     "findings",
-    "limitations"
+    "limitations",
+    "evidence_ledger_digest"
   ],
   "properties": {
     "schema_version": {
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "snapshot_id": {
       "type": "string",
@@ -34,7 +37,7 @@
       "type": "string"
     },
     "review_policy": {
-      "const": "review-policy-v0.1"
+      "const": "review-policy-v0.2"
     },
     "review_status": {
       "enum": [
@@ -48,59 +51,13 @@
       "type": "string",
       "pattern": "^[a-f0-9]{40,64}$"
     },
-    "coverage": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "reported_changed_files",
-        "enumerated_changed_files",
-        "included",
-        "excluded_by_policy",
-        "unavailable",
-        "reviewed",
-        "excluded_reasons",
-        "coverage_state"
-      ],
-      "properties": {
-        "reported_changed_files": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "enumerated_changed_files": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "included": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "excluded_by_policy": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "unavailable": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "reviewed": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "excluded_reasons": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "coverage_state": {
-          "enum": [
-            "COMPLETE",
-            "PARTIAL",
-            "UNDETERMINED"
-          ]
-        }
-      }
+    "base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "merge_base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
     },
     "reviewed_paths": {
       "type": "array",
@@ -109,6 +66,40 @@
         "minLength": 1
       },
       "uniqueItems": true
+    },
+    "review_attestations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "review_proof_refs",
+          "reviewed_scope",
+          "analysis_complete"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "review_proof_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "reviewed_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "analysis_complete": {
+            "type": "boolean"
+          }
+        }
+      }
     },
     "findings": {
       "type": "array",
@@ -126,6 +117,8 @@
           "causal_chain",
           "impact",
           "recommendation",
+          "root_cause_key",
+          "trigger_class",
           "evidence"
         ],
         "properties": {
@@ -191,109 +184,357 @@
             "type": "string",
             "minLength": 1
           },
+          "root_cause_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "trigger_class": {
+            "type": "string",
+            "minLength": 1
+          },
           "evidence": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "path",
-                "head_sha",
-                "start_line",
-                "end_line",
-                "evidence_ref"
-              ],
-              "properties": {
-                "path": {
-                  "type": "string",
-                  "minLength": 1
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "path",
+                    "previous_path",
+                    "head_sha",
+                    "side",
+                    "line",
+                    "hunk_id",
+                    "evidence_ref",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "DIFF_LINE"
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "previous_path": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "side": {
+                      "enum": [
+                        "LEFT",
+                        "RIGHT"
+                      ]
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "hunk_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
                 },
-                "head_sha": {
-                  "type": "string",
-                  "pattern": "^[a-f0-9]{40,64}$"
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "path",
+                    "head_sha",
+                    "ref_side",
+                    "start_line",
+                    "end_line",
+                    "evidence_ref",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "FILE_SPAN"
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "ref_side": {
+                      "enum": [
+                        "HEAD",
+                        "BASE",
+                        "MERGE_BASE"
+                      ]
+                    },
+                    "start_line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "end_line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
                 },
-                "start_line": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "end_line": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "evidence_ref": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "github_url": {
-                  "type": "string",
-                  "format": "uri"
-                },
-                "side": {
-                  "enum": [
-                    "RIGHT",
-                    "LEFT",
-                    "FILE",
-                    "PR"
-                  ]
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "head_sha",
+                    "evidence_ref",
+                    "source_type",
+                    "summary",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "PR_LEVEL"
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "source_type": {
+                      "enum": [
+                        "PR_METADATA",
+                        "ISSUE",
+                        "CI",
+                        "CROSS_FILE",
+                        "REQUIREMENT",
+                        "OTHER"
+                      ]
+                    },
+                    "summary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
                 }
-              }
+              ]
             },
             "minItems": 1
           },
           "counterevidence": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "path",
-                "head_sha",
-                "start_line",
-                "end_line",
-                "evidence_ref"
-              ],
-              "properties": {
-                "path": {
-                  "type": "string",
-                  "minLength": 1
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "path",
+                    "previous_path",
+                    "head_sha",
+                    "side",
+                    "line",
+                    "hunk_id",
+                    "evidence_ref",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "DIFF_LINE"
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "previous_path": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "side": {
+                      "enum": [
+                        "LEFT",
+                        "RIGHT"
+                      ]
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "hunk_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
                 },
-                "head_sha": {
-                  "type": "string",
-                  "pattern": "^[a-f0-9]{40,64}$"
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "path",
+                    "head_sha",
+                    "ref_side",
+                    "start_line",
+                    "end_line",
+                    "evidence_ref",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "FILE_SPAN"
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "ref_side": {
+                      "enum": [
+                        "HEAD",
+                        "BASE",
+                        "MERGE_BASE"
+                      ]
+                    },
+                    "start_line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "end_line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
                 },
-                "start_line": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "end_line": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "evidence_ref": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "github_url": {
-                  "type": "string",
-                  "format": "uri"
-                },
-                "side": {
-                  "enum": [
-                    "RIGHT",
-                    "LEFT",
-                    "FILE",
-                    "PR"
-                  ]
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "head_sha",
+                    "evidence_ref",
+                    "source_type",
+                    "summary",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "PR_LEVEL"
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "source_type": {
+                      "enum": [
+                        "PR_METADATA",
+                        "ISSUE",
+                        "CI",
+                        "CROSS_FILE",
+                        "REQUIREMENT",
+                        "OTHER"
+                      ]
+                    },
+                    "summary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
                 }
-              }
+              ]
             }
           },
           "reviewer_notes": {
             "type": "string"
-          },
-          "fingerprint": {
-            "type": "string",
-            "minLength": 1
           }
         }
       }
@@ -306,18 +547,19 @@
       }
     },
     "evidence_ledger_digest": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "generated_at": {
       "type": "string",
       "format": "date-time"
-    },
-    "final_head_sha": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{40,64}$"
     }
   }
 }

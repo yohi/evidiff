@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Server-authored Review Validation Receipt v0.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "validation_id",
+    "snapshot_id",
+    "snapshot_manifest_digest",
+    "result_digest",
+    "review_status",
+    "valid",
+    "reason_codes",
+    "verified_reviewed_files",
+    "verified_eligible_files",
+    "checked_current_head_sha",
+    "checked_current_base_sha",
+    "checked_current_merge_base_sha",
+    "verified_at",
+    "finding_identities",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "validation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "snapshot_manifest_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "result_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "review_status": {
+      "enum": [
+        "COMPLETE",
+        "PARTIAL",
+        "FAILED",
+        "STALE"
+      ]
+    },
+    "valid": {
+      "type": "boolean"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "verified_reviewed_files": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "verified_eligible_files": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "checked_current_head_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "checked_current_base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "checked_current_merge_base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finding_identities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding_id",
+          "fingerprint_version",
+          "fingerprint",
+          "identity_status"
+        ],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fingerprint_version": {
+            "const": "v1"
+          },
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "identity_status": {
+            "enum": [
+              "PROVISIONAL",
+              "CANONICAL",
+              "NEEDS_ADJUDICATION"
+            ]
+          }
+        }
+      }
+    },
+    "signature": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

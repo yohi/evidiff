@@ -1,4 +1,4 @@
-# Detailed Design — Acceptance Test Matrix v0.1
+# Detailed Design — Acceptance Test Matrix v0.2
 
 すべて設計段階のテストケースであり、2026-10-16時点で実行済みではない。
 
@@ -70,3 +70,28 @@
 - Private RepoはG2を満たすまで明示的に無効化。
 - Findingの重大性はレビューアーの自己申告点だけで確定させない。
 - P3コード実行、PRへのGitHub書き込みは本設計のスコープ外。別デザインと承認を必要とする。
+
+## R1 negative verification cases (not runtime-tested)
+
+| ID | Fixture | Required result |
+|---|---|---|
+| R1-01 | reported=100 enumerated=1 claims COMPLETE | Deny COMPLETE |
+| R1-02 | included>0 but no reviewed_paths/attestations | Deny COMPLETE |
+| R1-03 | reviewed_paths unknown/duplicate/incorrect refs | Invalid/PARTIAL |
+| R1-04 | all included attested and references genuine | COMPLETE only if all other gates hold |
+| R1-05 | PR_LEVEL with no path/line but valid source ref | Accept typed evidence |
+| R1-06 | LEFT deletion with RIGHT anchor/incorrect previous_path | Reject |
+| R1-07 | FILE_SPAN start>end/outside bounds | Reject |
+| R1-08 | push between live PR Files pages | Fixed Git object manifest or STALE; no mixed READY |
+| R1-09 | immutable tree/blob/hunk content mismatch or >3000 cap | NOT READY |
+| R1-10 | secret in source/PR title/CI/logs/exception/boundary | No raw secret in output/telemetry |
+| R1-11 | masked content sole basis of CONFIRMED_SOURCE | PENDING |
+| R1-12 | base moved but merge-base unchanged | STALE with base_moved=true |
+| R1-13 | branch identity or merge-base moved | STALE |
+| R1-14 | tool fetched but model never attested inspection | Not counted as reviewed |
+| R1-15 | same canonical key with different model/prose | Same fingerprint |
+| R1-16 | unverified rename / semantic identity collision | NEEDS_ADJUDICATION |
+| R1-17 | missing finding from partial rerun | Not automatically RESOLVED |
+| R1-18 | packaged ChatGPT Plugin + agents/openai.yaml | G0 Web deployment required |
+
+Document/schema checks do not replace server validation, G0–G4 or independent review.

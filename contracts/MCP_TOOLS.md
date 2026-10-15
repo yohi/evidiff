@@ -1,4 +1,4 @@
-# Remote MCP Read-only Tool Contract — Proposal v0.1
+# Remote MCP Read-only Tool Contract — Proposal v0.2 (R1)
 
 **Status:** NOT_IMPLEMENTED. Tool名・JSONは本プロジェクトが実装する予定の独自スキーマであり、GitHub/MCP標準の既存ツール名ではない。
 
@@ -30,7 +30,7 @@
 {
   "schema_version": "0.1.0",
   "request_id": "req-example",
-  "status": "READY",
+  "status": "PARTIAL",
   "snapshot_id": "sha256:example-placeholder",
   "pr": {
     "repo_id": "10001", "repo_full_name": "example/project", "number": 42,
@@ -55,7 +55,7 @@
 
 返却情報: `files[]`: `path`, `previous_path`, `status`, `added`, `deleted`, `binary`, `patch_available`, `scope`(INCLUDED / EXCLUDED_BY_POLICY / UNAVAILABLE), `patch_sha256`, `line_map_available`; `next_cursor`, `reported_total`, `returned_total`, `known_missing`, `coverage_status`, `limitations`。
 
-**完了条件**: 100件ずつ読み込み、`reported_total == 全ページ累積数`を照合。GitHubのAPI上限3000を超えたときは`PARTIAL`。ファイルのpatchが欠落していてもファイルが存在することを記録する。
+**完了条件**: 固定merge-base/head Git objectの完全なManifest・Hunkを再構築して正しさを証明する。PR Files API件数一致は補助情報でありREADYの必要十分条件ではない。GitHubのAPI上限3000を超えたときは`PARTIAL`。ファイルのpatchが欠落していてもファイルが存在することを記録する。
 
 ## 3. `get_diff_hunks`
 
@@ -103,7 +103,7 @@
 {"snapshot_id":"sha256:...", "verify_live_head":true}
 ```
 
-返却: `snapshot_status`(READY/PARTIAL/FAILED/STALE), `baseline_digest`, `coverage`: reported/returned/included/excluded/unavailable/unreviewed, `current_head_sha`, `head_moved`, `access_still_valid`, `evidence_ledger_digest`, `budget_usage`, `warnings`。
+返却: `snapshot_status`(READY/PARTIAL/FAILED/STALE), `baseline_digest`, `evidence_coverage`(MCP-owned), `snapshot_head_sha`, `snapshot_base_sha`, `snapshot_merge_base_sha`, `current_head_sha`, `current_base_sha`, `current_merge_base_sha`, `head_moved`, `base_moved`, `merge_base_moved`, `identity_changed`, `stale_reasons[]`, `checked_at`, `access_still_valid`, `evidence_ledger_digest`, `budget_usage`, `warnings`。LLMが読解したファイル数はMCPが勝手に計上しない。
 
 MCPは各モデルが「読んだ」かどうかを正確に把握できない。**MCP ledgerは取得済み証拠を示すもので、LLMが実際に検討した範囲と同値ではない**。最終review_resultの`reviewed_paths`はモデル側が主張する情報であり、MCP台帳との突合が必要。
 
@@ -120,3 +120,23 @@ MCPは各モデルが「読んだ」かどうかを正確に把握できない�
 - Reviews: PR reviews/comments API（read:Pull requests）
 
 参照 https://docs.github.com/en/rest/pulls/pulls 、 https://docs.github.com/en/rest/checks/runs 、https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization
+
+## v0.2 normative addendum (supersedes earlier sections)
+
+**Eighth read-only tool: validate_review_result.**
+- Input: snapshot_id, ReviewResult v0.2 candidate.
+- Server-owned inputs: authenticated principal, immutable Snapshot and manifest, committed Git object/hunk proofs, ACL-bound evidence delivery ledger, fresh PR HEAD/base/merge-base.
+- Output: validated-review-receipt.schema.json including accepted status, typed refusal reasons, digest of snapshot and result, verified reviewed count, checked live SHAs and finding fingerprint grouping. Receipt with signature=null is not cryptographically signed.
+- COMPLETE requires exact manifest partition; included=reported=enumerated=attested verified path count, excluded=unavailable=0, diff_integrity/line maps VERIFIED, all attestation refs valid and delivered, no blocked security evidence, no source/analysis gaps, no fresh SHA drift. Model claim alone cannot upgrade. This tool does not mutate GitHub or run PR code.
+
+**Git object contract:** Every READY manifest/diff derives from immutable merge_base_sha and head_sha tree/blob contents and verified hunk map. PR Files API is a diagnostic hint only, not immutable input, regardless of paging success. Raw Git object digest and exposed source SHA-256 are distinct.
+
+**Typed evidence:** DIFF_LINE requires verified LEFT old-line + old path or RIGHT new-line + new path, hunk_id and evidence_ref; FILE_SPAN must match exact SHA-scoped file bounds; PR_LEVEL intentionally carries no file/line. Block incorrect rename/side anchoring.
+
+**Secret gate:** scan all model-visible responses including source/patch/search/PR metadata/CI/error and logs; raw source/hash server-only; exposed redacted bytes have separate hash and redaction_state. Block unmaskable/uncertain secrets, mark PARTIAL. Do not claim universal detection of unknown credentials.
+
+**Freshness:** get_snapshot_status returns current/snapshot base, head and merge-base SHA and moved flags/reasons. A base change is STALE even if merge-base stays the same. Validator repeats check at final Receipt issuance.
+
+**Fingerprints:** canonical v1 from repo_id, verified path alias + symbol identity, enumerated category, controlled root cause and trigger; no line, prose or model name. No auto-resolve/reopen without separate registry proof.
+
+See docs/REVISION_R1_20261016.md and tests/ACCEPTANCE_MATRIX.md. The original sections 8–9 are retained as historic extension/API references, not current tool count.

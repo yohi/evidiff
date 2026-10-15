@@ -20,3 +20,8 @@ This skill applies to ChatGPT in the Web plugin experience. No local shell, Code
 **Independence:** Do not inspect Gemini findings or earlier reviewers' conclusions as authoritative evidence. Prior review comments may be examined as factual context but must not be adopted without independent verification.
 
 See the shared REVIEW_POLICY and MCP_TOOLS documents included separately in this design bundle before publishing this prototype.
+
+
+## R1 required final validation
+
+Produce v0.2 ReviewResult with typed DIFF_LINE, FILE_SPAN, PR_LEVEL references and file review_attestations. Call the eighth read-only MCP tool validate_review_result and only say COMPLETE if the **server receipt** accepts it. If inaccessible, report UNVALIDATED and limitations. HEAD/base/merge-base changes mean STALE. Never reveal secrets/blocked evidence or invent fingerprints.

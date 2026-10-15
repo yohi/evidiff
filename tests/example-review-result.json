@@ -1,23 +1,33 @@
 {
-  "schema_version": "0.1.0",
-  "snapshot_id": "sha256:test-snapshot",
+  "schema_version": "0.2.0",
+  "snapshot_id": "sha256:fixture",
   "model_family": "chatgpt",
-  "review_policy": "review-policy-v0.1",
+  "review_policy": "review-policy-v0.2",
   "review_status": "PARTIAL",
   "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "coverage": {
-    "reported_changed_files": 3,
-    "enumerated_changed_files": 3,
-    "included": 3,
-    "excluded_by_policy": 0,
-    "unavailable": 1,
-    "reviewed": 2,
-    "excluded_reasons": [],
-    "coverage_state": "PARTIAL"
-  },
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "merge_base_sha": "cccccccccccccccccccccccccccccccccccccccc",
   "reviewed_paths": [
     "src/a.ts",
     "src/b.ts"
+  ],
+  "review_attestations": [
+    {
+      "path": "src/a.ts",
+      "review_proof_refs": [
+        "ev:fixture:a"
+      ],
+      "reviewed_scope": "changed logic",
+      "analysis_complete": true
+    },
+    {
+      "path": "src/b.ts",
+      "review_proof_refs": [
+        "ev:fixture:b"
+      ],
+      "reviewed_scope": "caller",
+      "analysis_complete": true
+    }
   ],
   "findings": [
     {
@@ -31,19 +41,26 @@
       "causal_chain": "不正入力が正常入力として扱われる",
       "impact": "意図しない処理",
       "recommendation": "不正入力を拒否",
+      "root_cause_key": "INPUT_VALIDATION_MISSING",
+      "trigger_class": "DUPLICATE_KEY",
       "evidence": [
         {
+          "kind": "DIFF_LINE",
           "path": "src/a.ts",
+          "previous_path": null,
           "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "start_line": 42,
-          "end_line": 46,
-          "evidence_ref": "ev:fixture:one",
-          "side": "RIGHT"
+          "side": "RIGHT",
+          "line": 42,
+          "hunk_id": "hunk:fixture",
+          "evidence_ref": "ev:fixture:a",
+          "redaction_state": "NONE"
         }
-      ]
+      ],
+      "counterevidence": []
     }
   ],
   "limitations": [
     "src/c.ts source unavailable"
-  ]
+  ],
+  "evidence_ledger_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 }

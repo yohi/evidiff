@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pr_evidence": {
+      "type": "http",
+      "url": "https://your-mcp-host.example.invalid/mcp"
+    }
+  }
+}

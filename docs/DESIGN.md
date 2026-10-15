@@ -1,9 +1,10 @@
-# PR URL入力型AIコードレビュー — 詳細設計 v0.1
+# PR URL入力型AIコードレビュー — 詳細設計 v0.2 — Revision R1
 
 - 基準日: 2026-10-16 JST
 - 文書種別: Proposal / detailed design、正式承認・実装ではない
 - 対象: ChatGPT Web Plugin + Skill、Gemini Web Skills（Gem移行期はGem互換）、共通HTTPS Remote MCP
-- 変更対象: なし。リポジトリ変更、外部サービス接続、デプロイ、課金は行っていない。
+- 変更対象: PR #1 Draft上の文書、Schema、検証草案。MCP実装・デプロイ・実機検証は未実施。
+- 優先規範: [Revision R1](REVISION_R1_20261016.md)。旧v0.1と矛盾する場合R1/v0.2を適用。
 
 ## 1. 背景と目的
 
@@ -36,7 +37,7 @@ MCPは**根拠を確実に取得・固定すること**が主務。MCPで特定�
 6. 最終直前にPR HEADを再確認し、変更されていればSTALEと表記する。
 
 ### 2.2 Snapshot ID
-`sha256(canonical_json({schema_version,provider,repository_id,pr_number,base_sha,head_sha,merge_base_sha,selection_policy_id}))` を推奨。URLやbranch名だけのキーは禁止。`merge_base_sha`が未確定なら状態INCOMPLETEとして発行するか取得停止する（運用ポリシーで固定）。サーバーはcanonical化方式を固定し、アルゴリズムとルール版を記録する。
+`sha256(canonical_json({schema_version,provider,repository_id,pr_number,base_sha,head_sha,merge_base_sha,selection_policy_id,diff_algorithm_version,manifest_digest}))` を推奨。URLやbranch名だけのキーは禁止。`merge_base_sha`が未確定なら状態INCOMPLETEとして発行するか取得停止する（運用ポリシーで固定）。サーバーはcanonical化方式を固定し、アルゴリズムとルール版を記録する。
 
 Repository IDを永続的な識別に用いる。変更されたbase branchやforce pushには新Snapshotを発行する。同じSnapshot IDで内容や選定ポリシーを黙って変更しない。
 
@@ -58,7 +59,7 @@ PR上の差分はbaseブランチHEADとPR headの単純なファイル差とは
 原本バイトにSHA-256、テキスト正規化後には別ハッシュ。改行・文字コード・バイナリやLFSポインタ等に注意。Git Blob SHA-1/256とユーザー向け原文SHA-256を区別する。レダクションした証拠には「元データと同一でない」ことを明示する。
 
 ### 3.3 全件と一部
-GitHubのPR changed files APIには**最大3000ファイル**の上限がある。per_page=100でページングし、`changed_files`数、取得ファイル数、最終ページ、missing/patch欠落の差を記録する。ページング成功だけで完全性を確信せず、必要なら権限付きGitオブジェクト取得と固定SHA比較で代替確認。API上限や巨大ファイルで不可能な場合はPARTIALとする。
+GitHubのPR changed files APIには**最大3000ファイル**の上限がある。per_page=100でページングし、`changed_files`数、取得ファイル数、最終ページ、missing/patch欠落の差を記録する。API成功だけでは完全と判定せず、READYには固定merge-base/head Git objectから全Manifest/Diff/Hunkを再構成・整合確認する。API上限や巨大ファイルで不可能な場合はPARTIALとする。
 
 Binary/rename/delete/submodule/LFS/generated/vendor filesは個別に分類。ポリシー対象外は`EXCLUDED_BY_POLICY`、解析不能は`UNAVAILABLE`とし混同しない。
 
@@ -66,7 +67,7 @@ Binary/rename/delete/submodule/LFS/generated/vendor filesは個別に分類。�
 GitHub Code Searchの通常検索は必ずしも指定Commitの完全な索引を提供するものではない。`search_at_snapshot`は厳密にSnapshotのGit treeとContentに基づくことを保証する。候補実装はcommit-scoped tree API + bounded text search、または短命の隔離索引。実装不能な場合は「履歴非固定検索」として証拠に採用せず、明示エラーを返す。
 
 ## 4. Remote MCP I/F
-詳細は `contracts/MCP_TOOLS.md`。初期ツールは7つで、すべてread-only。
+詳細は `contracts/MCP_TOOLS.md`。v0.2では8ツール。8番目の `validate_review_result` はサーバーがモデル出力を検証してReceiptを返す。
 
 1. `open_pr_snapshot`
 2. `list_changed_files`
@@ -75,6 +76,7 @@ GitHub Code Searchの通常検索は必ずしも指定Commitの完全な索引�
 5. `search_at_snapshot`
 6. `get_pr_related_evidence`
 7. `get_snapshot_status`
+8. `validate_review_result`
 
 すべての読み取り要求に`{snapshot_id, ...}`を必須とし、誤ってdefault branch最新版から読むことを禁止する。`open_pr_snapshot`のみPR URL。失敗は型付きコード・原因・未充足範囲・再試行可否を返す。LLMの回答文にエラーを混ぜて「成功」に偽装しない。
 
@@ -102,7 +104,7 @@ GitHub Code Searchの通常検索は必ずしも指定Commitの完全な索引�
 ## 6. 判定モデル
 
 ### 6.1 Review Status
-- `COMPLETE`: 選定したPR変更範囲を全件取得・処理し、必須検証が成功した。コード全体の安全性保証ではない。
+- `COMPLETE`: サーバーValidatorが対象変更範囲の不変証拠・行位置・レビュー申告・最終SHAを突合してReceiptを発行した場合のみ。モデル内部の読解の証明やコード全体の無欠陥保証ではない。
 - `PARTIAL`: 一部ファイル未取得、LLM予算不足、重要な関連コード未取得など。Finding有無は別。
 - `FAILED`: 基本情報、GitHub認可、差分整合などの必須前提が成立しない。
 - `STALE`: HEADまたはbase比較基点がレビュー開始後に変わった。
@@ -150,7 +152,7 @@ Findingはstable fingerprintを保持し、ACTIVE/RESOLVED/REOPENEDを別フィ�
 ## 9. Web別の提供方式
 
 ### 9.1 ChatGPT Web
-- Root `plugin.json` + root `mcp.json` + `skills/github-pr-review/SKILL.md`。
+- ChatGPT Pluginルート `chatgpt/`: `.codex-plugin/plugin.json` + `.mcp.json` + `skills/github-pr-review/SKILL.md` + `skills/github-pr-review/agents/openai.yaml`。
 - サーバはHTTPSの`streamable-http`。プラグインそのものがMCPサーバーをホストするわけではない。
 - プラグイン内にGitHub tokenを埋め込まない。必要なOAuthをMCP接続フローで完了する。
 - 試験対象はChatGPT Webのプラグイン利用可能な面。公式QuickstartはChatGPT Work on Webを使うが、すべてのチャット面で同一ツールが使えると仮定しない。
@@ -196,3 +198,6 @@ Findingはstable fingerprintを保持し、ACTIVE/RESOLVED/REOPENEDを別フィ�
 ## 12. 根拠
 
 一次資料と各OSSソースへの参照は `../sources/SOURCES.md` 。とくにGitHub PR files上限、OpenAI Plugin package、Gemini Skills/Custom Apps、MCP Auth/Transport仕様を正式実装の前に再確認する。
+## 13. R1 correction precedence
+
+[REVISION_R1_20261016.md](REVISION_R1_20261016.md) がF-001〜008の規範改訂、Snapshot/ReviewResult v0.2、検証Receipt、Secret Redaction、Fingerprint v1を定義する。サーバーValidator未実装、G0〜G4未実証。旧節と衝突する記述はR1優先。
