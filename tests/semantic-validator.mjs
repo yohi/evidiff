@@ -138,6 +138,7 @@ export function validateSemantic(snapshot, review, live, ledger) {
     if (finding.verification === 'CONFIRMED_RUNTIME') add('UNSUPPORTED_RUNTIME_ASSERTION');
     if (finding.lifecycle !== 'ACTIVE') add('LIFECYCLE_REQUIRES_REGISTRY');
   }
+  if (review.review_status !== 'COMPLETE') add('MODEL_NOT_COMPLETE');
   if (review.limitations.length || snapshot.limitations.length) add('UNRESOLVED_LIMITATIONS');
   if (review.evidence_ledger_digest !== live.evidence_ledger_digest) add('LEDGER_DIGEST_MISMATCH');
   const stale = live.head_sha !== snapshot.head_sha || live.base_sha !== snapshot.base_sha ||

@@ -36,3 +36,5 @@ Independent design review of PR #1 found 4 High + 4 Medium issues. The proposed 
 ## R2 limited correction — independent recheck
 
 R1-IR-001..005 are addressed by a second design/contract proposal: [R2 design correction](docs/REVISION_R2_20261016.md). Added Draft2020-12 preflight, LEFT/FILE_SPAN delivered-line checks, required Codex plugin fields, a nested Receipt envelope, and unambiguous fingerprint identity rules. New offline Node/Python tests and [CI](.github/workflows/offline-contracts.yml) do not constitute deployed MCP or independently accepted closure.
+
+**R2-FIX-001:** GitHub Actions caught a missing RFC3339 date-time checker; the offline schema gate now rejects missing format support and installs jsonschema[format] explicitly. CI pass is required before independent re-review.

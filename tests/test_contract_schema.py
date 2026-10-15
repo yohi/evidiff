@@ -65,6 +65,16 @@ class TestContracts(unittest.TestCase):
     def test_positive_complete_review_fixture(self):
         self.assert_valid(self.review,doc("../tests/example-review-result.json"))
 
+    def test_bad_snapshot_date_time_denied(self):
+        x=doc("../tests/example-review-snapshot.json")
+        x["created_at"]="not a date"
+        self.assert_invalid(self.snapshot,x)
+
+    def test_date_time_format_checker_present(self):
+        checker=FormatChecker()
+        self.assertIn("date-time",checker.checkers)
+        self.assertFalse(checker.conforms("not a date","date-time"))
+
     def test_missing_snapshot_repository_denied(self):
         x=doc("../tests/example-review-snapshot.json"); del x["repository"]
         self.assert_invalid(self.snapshot,x)

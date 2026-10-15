@@ -17,7 +17,13 @@ def validate(snapshot, review):
         try:
             schema = json.loads((BASE / filename).read_text(encoding="utf-8"))
             Draft202012Validator.check_schema(schema)
-            checker = Draft202012Validator(schema, format_checker=FormatChecker())
+            format_checker = FormatChecker()
+            # A bare jsonschema install may silently omit the RFC3339 date-time checker.
+            # Never treat unknown/unregistered formats as successful validation.
+            if "date-time" not in format_checker.checkers or format_checker.conforms("not a date", "date-time"):
+                result.append("SCHEMA_FORMAT_CHECKER_UNAVAILABLE")
+                continue
+            checker = Draft202012Validator(schema, format_checker=format_checker)
             if any(checker.iter_errors((snapshot if field == "snapshot" else review))):
                 result.append("SCHEMA_" + field.upper() + "_INVALID")
         except Exception:
