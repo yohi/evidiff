@@ -1,0 +1,323 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/review-result.v0.1.json",
+  "title": "ReviewResult v0.1 — proposed",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "model_family",
+    "review_policy",
+    "review_status",
+    "head_sha",
+    "coverage",
+    "reviewed_paths",
+    "findings",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_family": {
+      "enum": [
+        "chatgpt",
+        "gemini"
+      ]
+    },
+    "model_version": {
+      "type": "string"
+    },
+    "review_policy": {
+      "const": "review-policy-v0.1"
+    },
+    "review_status": {
+      "enum": [
+        "COMPLETE",
+        "PARTIAL",
+        "FAILED",
+        "STALE"
+      ]
+    },
+    "head_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reported_changed_files",
+        "enumerated_changed_files",
+        "included",
+        "excluded_by_policy",
+        "unavailable",
+        "reviewed",
+        "excluded_reasons",
+        "coverage_state"
+      ],
+      "properties": {
+        "reported_changed_files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "enumerated_changed_files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "included": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_by_policy": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unavailable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reviewed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "coverage_state": {
+          "enum": [
+            "COMPLETE",
+            "PARTIAL",
+            "UNDETERMINED"
+          ]
+        }
+      }
+    },
+    "reviewed_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding_id",
+          "title",
+          "severity",
+          "category",
+          "verification",
+          "lifecycle",
+          "failure_scenario",
+          "causal_chain",
+          "impact",
+          "recommendation",
+          "evidence"
+        ],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "category": {
+            "enum": [
+              "correctness",
+              "security",
+              "compatibility",
+              "requirements",
+              "regression",
+              "performance",
+              "concurrency",
+              "data_integrity",
+              "error_handling",
+              "tests",
+              "other"
+            ]
+          },
+          "verification": {
+            "enum": [
+              "CONFIRMED_SOURCE",
+              "CONFIRMED_RUNTIME",
+              "PENDING_VERIFICATION",
+              "REJECTED"
+            ]
+          },
+          "lifecycle": {
+            "enum": [
+              "ACTIVE",
+              "RESOLVED",
+              "REOPENED"
+            ]
+          },
+          "failure_scenario": {
+            "type": "string",
+            "minLength": 1
+          },
+          "causal_chain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "impact": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recommendation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "head_sha",
+                "start_line",
+                "end_line",
+                "evidence_ref"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "head_sha": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{40,64}$"
+                },
+                "start_line": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "end_line": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "evidence_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "github_url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "side": {
+                  "enum": [
+                    "RIGHT",
+                    "LEFT",
+                    "FILE",
+                    "PR"
+                  ]
+                }
+              }
+            },
+            "minItems": 1
+          },
+          "counterevidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "head_sha",
+                "start_line",
+                "end_line",
+                "evidence_ref"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "head_sha": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{40,64}$"
+                },
+                "start_line": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "end_line": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "evidence_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "github_url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "side": {
+                  "enum": [
+                    "RIGHT",
+                    "LEFT",
+                    "FILE",
+                    "PR"
+                  ]
+                }
+              }
+            }
+          },
+          "reviewer_notes": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidence_ledger_digest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "final_head_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    }
+  }
+}

@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/review-snapshot.v0.1.json",
+  "title": "ReviewSnapshot v0.1 — proposed",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "repository_id",
+    "repository",
+    "pull_request_number",
+    "base_sha",
+    "head_sha",
+    "merge_base_sha",
+    "selection_policy_id",
+    "state",
+    "files",
+    "coverage",
+    "evidence_ledger_digest",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repository_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[^/]+/[^/]+$"
+    },
+    "pull_request_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "head_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "merge_base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "selection_policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state": {
+      "enum": [
+        "READY",
+        "PARTIAL",
+        "FAILED",
+        "STALE"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "status",
+          "scope",
+          "patch_available"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "previous_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "added",
+              "modified",
+              "removed",
+              "renamed",
+              "copied",
+              "changed",
+              "unknown"
+            ]
+          },
+          "scope": {
+            "enum": [
+              "INCLUDED",
+              "EXCLUDED_BY_POLICY",
+              "UNAVAILABLE"
+            ]
+          },
+          "patch_available": {
+            "type": "boolean"
+          },
+          "patch_sha256": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            ]
+          },
+          "binary": {
+            "type": "boolean"
+          },
+          "additions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "deletions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "line_map_available": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reported_changed_files",
+        "enumerated_changed_files",
+        "included",
+        "excluded_by_policy",
+        "unavailable",
+        "reviewed",
+        "excluded_reasons",
+        "coverage_state"
+      ],
+      "properties": {
+        "reported_changed_files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "enumerated_changed_files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "included": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_by_policy": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unavailable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reviewed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "coverage_state": {
+          "enum": [
+            "COMPLETE",
+            "PARTIAL",
+            "UNDETERMINED"
+          ]
+        }
+      }
+    },
+    "evidence_ledger_digest": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

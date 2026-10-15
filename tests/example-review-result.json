@@ -1,0 +1,49 @@
+{
+  "schema_version": "0.1.0",
+  "snapshot_id": "sha256:test-snapshot",
+  "model_family": "chatgpt",
+  "review_policy": "review-policy-v0.1",
+  "review_status": "PARTIAL",
+  "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "coverage": {
+    "reported_changed_files": 3,
+    "enumerated_changed_files": 3,
+    "included": 3,
+    "excluded_by_policy": 0,
+    "unavailable": 1,
+    "reviewed": 2,
+    "excluded_reasons": [],
+    "coverage_state": "PARTIAL"
+  },
+  "reviewed_paths": [
+    "src/a.ts",
+    "src/b.ts"
+  ],
+  "findings": [
+    {
+      "finding_id": "F-001",
+      "title": "入力条件の誤処理",
+      "severity": "high",
+      "category": "correctness",
+      "verification": "CONFIRMED_SOURCE",
+      "lifecycle": "ACTIVE",
+      "failure_scenario": "重複パラメータで分岐する",
+      "causal_chain": "不正入力が正常入力として扱われる",
+      "impact": "意図しない処理",
+      "recommendation": "不正入力を拒否",
+      "evidence": [
+        {
+          "path": "src/a.ts",
+          "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "start_line": 42,
+          "end_line": 46,
+          "evidence_ref": "ev:fixture:one",
+          "side": "RIGHT"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "src/c.ts source unavailable"
+  ]
+}
