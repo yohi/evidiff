@@ -29,44 +29,89 @@ function schemaGate(snapshot, review) {
 }
 
 
-const digest = x => createHash('sha256').update(JSON.stringify(x),'utf8').digest('hex');
-export function captureDigest(s) {
-  return digest({
-    domain:'evidiff.capture.v1',snapshot_id:s.snapshot_id,repository_id:s.repository_id,
-    base_sha:s.base_sha,head_sha:s.head_sha,merge_base_sha:s.merge_base_sha,
-    selection_policy_id:s.selection_policy_id,manifest_digest:s.evidence_coverage.manifest_digest,
-    files:s.files.map(f=>({
-      path:f.path,previous_path:f.previous_path,status:f.status,scope:f.scope,
-      patch_sha256:f.patch_sha256,content_state:f.content_state
-    })).sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0)
+/**
+ * Reference canonical bytes v2 — UTF-8 JSON, recursive lexicographic key
+ * ordering, array order preserved, no undefined/non-JSON values or cycles.
+ * This is a local deterministic encoding, NOT a claim of RFC 8785 compliance.
+ * Both digest domains must use the exact same versioned normalization.
+ */
+function canonicalJSON(value) {
+  const ancestors=new Set();
+  function encode(x) {
+    if(x===null || typeof x==='string' || typeof x==='boolean') return JSON.stringify(x);
+    if(typeof x==='number') {
+      if(!Number.isFinite(x)) throw new TypeError('NON_FINITE_NUMBER');
+      return JSON.stringify(x);
+    }
+    if(typeof x!=='object')throw new TypeError('NOT_JSON_VALUE');
+    if(ancestors.has(x))throw new TypeError('CYCLIC_JSON');
+    if(!Array.isArray(x) && Object.getPrototypeOf(x)!==Object.prototype &&
+       Object.getPrototypeOf(x)!==null) throw new TypeError('NOT_PLAIN_OBJECT');
+    ancestors.add(x);
+    let encoded;
+    if(Array.isArray(x)) {
+      encoded='['+x.map(encode).join(',')+']';
+    } else {
+      encoded='{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+encode(x[k])).join(',')+'}';
+    }
+    ancestors.delete(x);
+    return encoded;
+  }
+  return encode(value);
+}
+function canonicalDigest(value) {
+  try {return createHash('sha256').update(canonicalJSON(value),'utf8').digest('hex');}
+  catch {return null;}
+}
+
+/**
+ * Capture is an immutable, schema-checked whole-snapshot payload EXCEPT
+ * its own digest field, which cannot recursively hash itself. All existing
+ * identity, file, diff, coverage, status, and limitations fields are included.
+ */
+export function captureDigest(snapshot) {
+  if(!snapshot || typeof snapshot!=='object' || Array.isArray(snapshot))return null;
+  const withoutSelf={...snapshot};
+  delete withoutSelf.evidence_ledger_digest;
+  return canonicalDigest({
+    digest_domain:'evidiff.capture.v2',
+    digest_encoding:'canonical-json-v2',
+    snapshot:withoutSelf
   });
 }
+/**
+ * Delivery ledger is an ordered server-owned sequence; each record hashes ALL
+ * of its metadata (including old_path, total_lines, intervals, side and flags)
+ * and is explicitly bound to the ledger key, preventing key/id substitution.
+ */
 function orderedEntries(ledger,snapshot) {
-  if (!ledger || typeof ledger!=='object'||Array.isArray(ledger)) return null;
-  const a=Object.entries(ledger).map(([id,v])=>({id,...v}));
-  a.sort((x,y)=>x.delivery_seq-y.delivery_seq);
-  if (!a.every((e,i)=>Number.isSafeInteger(e.delivery_seq)&&e.delivery_seq===i+1&&
-    e.delivered===true&&e.snapshot_id===snapshot.snapshot_id&&e.head_sha===snapshot.head_sha&&
-    /^[a-f0-9]{64}$/.test(e.exposed_digest||'') &&
-    ['NONE','REDACTED','BLOCKED'].includes(e.redaction_state))) return null;
-  return a;
+  if(!ledger || typeof ledger!=='object' || Array.isArray(ledger))return null;
+  const entries=[];
+  for(const [id,record] of Object.entries(ledger)) {
+    if(!record || typeof record!=='object' || Array.isArray(record) ||
+       Object.hasOwn(record,'id') || !id) return null;
+    entries.push({...record,id});
+  }
+  entries.sort((a,b)=>a.delivery_seq-b.delivery_seq);
+  if(!entries.every((e,i)=>Number.isSafeInteger(e.delivery_seq)&&e.delivery_seq===i+1&&
+     e.delivered===true&&e.snapshot_id===snapshot.snapshot_id&&e.head_sha===snapshot.head_sha&&
+     /^[a-f0-9]{64}$/.test(e.exposed_digest||'') &&
+     ['NONE','REDACTED','BLOCKED'].includes(e.redaction_state)))return null;
+  return entries;
 }
 export function deliveryDigest(ledger,snapshot) {
-  const a=orderedEntries(ledger,snapshot);
-  if (!a) return null;
-  return digest({
-    domain:'evidiff.delivery.v1',snapshot_id:snapshot.snapshot_id,
-    capture_digest:snapshot.evidence_ledger_digest,epoch:a.length,
-    events:a.map(e=>({
-      seq:e.delivery_seq,id:e.id,path:e.path||null,side:e.side||null,line:e.line||null,
-      hunk_id:e.hunk_id||null,ref_side:e.ref_side||null,commit_sha:e.commit_sha||null,
-      delivered_start_line:e.delivered_start_line||null,
-      delivered_end_line:e.delivered_end_line||null,
-      kind:e.kind||null,source_type:e.source_type||null,
-      exposed_digest:e.exposed_digest,redaction_state:e.redaction_state
-    }))
+  const entries=orderedEntries(ledger,snapshot);
+  if(!entries)return null;
+  return canonicalDigest({
+    digest_domain:'evidiff.delivery.v2',
+    digest_encoding:'canonical-json-v2',
+    snapshot_id:snapshot.snapshot_id,
+    acquisition_digest:snapshot.evidence_ledger_digest,
+    epoch:entries.length,
+    entries
   });
 }
+
 export function validateToolEnvelope(envelope,expectedSnapshotId,expectedRequestId) {
   const r=schemaGateEnvelope(envelope);
   if (!r.valid) return {valid:false,complete:false,reason_codes:r.reason_codes};

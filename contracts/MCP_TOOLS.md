@@ -174,3 +174,27 @@ Review baseline: HEAD 1a3caf1afa9452bbea2d32dc3ade798aee768cf2. Both findings re
 ### Validation evidence and pending gates
 
 The expanded Node test suite adds the three-null regression, null capture, null proposal, null trusted live digest, arbitrary matching digest, epoch drift, late delivery, missing sequence, modified exposed digest, and Envelope/Receipt snapshot/request mismatch tests. Python schema tests add nulls and demonstrate that cross-object equality requires semantic checking. GitHub CI results must be read from the fixed correction HEAD independently. G0-G4 remain NOT PROVEN. Do not merge PR #1 or authorize private-repo scope on this basis.
+
+## R2-IR-NEW-003 — Canonical Payload v2 / full-field integrity (normative correction)
+
+This section supersedes every v1 canonicalization/field-selection description in R1/R2 and is **limited to the offline contract proposal**. The R2-IR-NEW-003 independent review found that captureDigest omitted pull_request_number, binary and line_map_available and that deliveryDigest omitted old_path and total_lines.
+
+### Acquisition digest — evidiff.capture.v2
+
+The captured Snapshot SHA-256 covers ALL fields of the full Draft 2020-12-validated Snapshot object, with exactly one exclusion: evidence_ledger_digest (which cannot hash itself). This includes repository identity, repository full name, pull_request_number, snapshot_id, selected policy, created_at, state, pinned SHA triple, every member of every file (binary, line_map_available, old/new path, statuses, content_state, digests and counts), all evidence_coverage fields and limitations. Every Schema-accepted field automatically participates. The sealed digest must be compared against an independently recomputed value; format/non-null alone is not an integrity proof.
+
+### Delivery digest — evidiff.delivery.v2
+
+The SHA-256 covers the sealed capture digest, snapshot_id, delivery epoch and ALL properties of every delivered event, not an allowlist. The authoritative dictionary entry key is bound as event id, and cannot be shadowed by an id property within the event. Events are ordered by verified contiguous delivery_seq, and contain old_path, total_lines, hunk/line, commit SHA, ref_side, source_type, redaction state, response exposed_digest and any future event metadata. Changing the ledger key or any value must invalidate the recomputed digest or fail event validation. Nulls, malformed sequence and unproven delivery fail closed.
+
+### Canonical bytes / compatibility
+
+The reference encoding canonical-json-v2 recursively sorts JSON object member names by JavaScript UTF-16 code unit order, retains array order, uses JSON escaping, rejects cyclic, nonfinite, undefined, non-JSON values; SHA-256 is over its UTF-8 bytes. Domain fields and versions differentiate capture from delivery. This is **not** a claim of RFC 8785/JCS compliance; production or cross-language consumers require an explicit interoperability suite and a normative encoding standard decision. Digest v1 must not be interpreted as v2 or silently accepted.
+
+### Trust restrictions
+
+The reference hashes synthetic JSON objects and delivery entries; a production server must independently compare these with original immutable Git objects, sealed manifest byte content, actually emitted sanitized response bytes and authenticated/principal-scoped ledger events. An attacker that can replace both trusted data and the local recomputed hash is not prevented by hashing alone. The server must protect the seal and enforce authorization, revalidation, provenance and epoch fencing. This correction does NOT establish G0–G4 and does NOT authorize Private Repo use or PR #1 merge.
+
+### Test contract
+
+Negative regression tests alter pull_request_number, binary, line_map_available, every major Snapshot field, old_path, total_lines, commit/ref-side, line/hunk, delivery intervals, redaction and event key, and assert no COMPLETE. Positive tests verify canonical member-order independence and distinct capture/delivery domains. This is a proposal-only revision pending independent limited recheck on the new fixed HEAD.

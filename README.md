@@ -42,3 +42,8 @@ R1-IR-001..005 are addressed by a second design/contract proposal: [R2 design co
 ## R2-IR-NEW-001/002 limited correction
 
 See [two-ledger digest and Receipt identity contract](contracts/MCP_TOOLS.md) and [R2 acceptance regression cases](tests/ACCEPTANCE_MATRIX.md). Snapshot acquisition and per-client evidence delivery now have distinct digest/epoch validation; Envelope/Receipt Snapshot identity must match authenticated request. The changes remain pending independent recheck and runtime G0–G4.
+
+
+### R2-IR-NEW-003 limited correction
+
+The offline reference now derives acquisition and delivery digests from Canonical Payload v2 covering the entire validated Snapshot (excluding its own digest) and every delivered evidence event property/key. See the full contract in contracts/MCP_TOOLS.md and mutation test matrix in tests/ACCEPTANCE_MATRIX.md. Git original-source provenance, actual emitted bytes and cross-tenant authority are still unproven. Draft PR remains open for independent review.

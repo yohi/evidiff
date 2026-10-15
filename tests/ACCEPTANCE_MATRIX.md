@@ -135,3 +135,20 @@ Both are local/synthetic-contract verification only. CI must be independently ob
 | R2-NEW-002-D | schema-invalid envelope | SCHEMA_ENVELOPE_INVALID |
 
 All are **offline synthetic contract tests**, not runtime GitHub/MCP proofs.
+
+
+## R2-IR-NEW-003 targeted digest regression tests
+
+| ID | Mutation | Expected |
+|---|---|---|
+| NEW003-A | PR number, repo ID, selection policy, SHA triple, created_at | Capture mismatch, COMPLETE forbidden |
+| NEW003-B | File binary, line_map_available, path, old path, status, counts, patch digest, content state | Capture mismatch |
+| NEW003-C | Snapshot coverage flags, manifest digest, limitations and array order | Capture mismatch |
+| NEW003-D | Delivered old_path, total_lines, commit_sha, ref_side, source_type, hunk, line | Delivery mismatch |
+| NEW003-E | Delivery interval, exposed_digest, redaction state, event sequence and extra fields | Delivery mismatch or malformed |
+| NEW003-F | Ledger dictionary key renamed or shadowed id field | Digest changed or rejected |
+| NEW003-G | Object property insertion order shuffled | Identical canonical digest |
+| NEW003-H | Capture digest substituted as delivery digest | Reject |
+| NEW003-I | Missing independent Git raw object or actual emitted-byte check | Still NOT_PROVEN at G1/G2 |
+
+Only offline synthetic contract tests. No evidence that G0–G4 has been executed.

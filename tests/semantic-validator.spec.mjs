@@ -247,3 +247,119 @@ test('PARTIAL Receipt can be valid envelope but never COMPLETE',()=>{
   assert.equal(x.valid,true,JSON.stringify(x));
   assert.equal(x.complete,false);
 });
+
+
+// R2-IR-NEW-003: all schema Snapshot fields and full delivery-event metadata.
+test('capture digest protects PR identity and every file/coverage property',()=>{
+  const cases=[
+    ['pull_request_number',f=>f.snapshot.pull_request_number=2],
+    ['repository',f=>f.snapshot.repository='other/repository'],
+    ['repository_id',f=>f.snapshot.repository_id='repo:2'],
+    ['snapshot_id',f=>f.snapshot.snapshot_id='sha256:other'],
+    ['selection_policy_id',f=>f.snapshot.selection_policy_id='other'],
+    ['base_sha',f=>f.snapshot.base_sha=SHA('d')],
+    ['head_sha',f=>f.snapshot.head_sha=SHA('e')],
+    ['merge_base_sha',f=>f.snapshot.merge_base_sha=SHA('f')],
+    ['state',f=>f.snapshot.state='PARTIAL'],
+    ['created_at',f=>f.snapshot.created_at='2026-10-17T00:00:00Z'],
+    ['file.path',f=>f.snapshot.files[0].path='new-a.ts'],
+    ['file.previous_path',f=>f.snapshot.files[0].previous_path='old-a.ts'],
+    ['file.status',f=>f.snapshot.files[0].status='renamed'],
+    ['file.scope',f=>f.snapshot.files[0].scope='UNAVAILABLE'],
+    ['file.patch_available',f=>f.snapshot.files[0].patch_available=false],
+    ['file.patch_sha256',f=>f.snapshot.files[0].patch_sha256='a'.repeat(64)],
+    ['file.binary',f=>f.snapshot.files[0].binary=true],
+    ['file.additions',f=>f.snapshot.files[0].additions=42],
+    ['file.deletions',f=>f.snapshot.files[0].deletions=41],
+    ['file.line_map_available',f=>f.snapshot.files[0].line_map_available=false],
+    ['file.content_state',f=>f.snapshot.files[0].content_state='REDACTED'],
+    ['file.scope_reason',f=>f.snapshot.files[0].scope_reason='policy-reason'],
+    ['coverage.manifest_digest',f=>f.snapshot.evidence_coverage.manifest_digest='b'.repeat(64)],
+    ['coverage.line_anchor_integrity',f=>f.snapshot.evidence_coverage.line_anchor_integrity='PARTIAL'],
+    ['coverage.reported_changed_files',f=>f.snapshot.evidence_coverage.reported_changed_files=4],
+    ['coverage.excluded_reasons',f=>f.snapshot.evidence_coverage.excluded_reasons.push('policy')],
+    ['limitations',f=>f.snapshot.limitations.push('missing source')],
+    ['file order',f=>f.snapshot.files.reverse()]
+  ];
+  for(const [name,mutate] of cases){
+    const f=fixture(),sealed=f.snapshot.evidence_ledger_digest;
+    mutate(f);
+    assert.notEqual(captureDigest(f.snapshot),sealed,name+' unprotected');
+    const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+    assert.equal(result.valid,false,name+' accepted COMPLETE');
+    assert.ok(result.reason_codes.includes('ACQUISITION_DIGEST_MISMATCH') ||
+      result.reason_codes.some(x=>x.startsWith('SCHEMA_')),name+': '+JSON.stringify(result));
+  }
+});
+test('capture digest unaffected by JSON object property order',()=>{
+  const f=fixture(),reorder=o=>Object.fromEntries(Object.entries(o).reverse());
+  const s=reorder(f.snapshot);
+  s.files=f.snapshot.files.map(reorder);
+  s.evidence_coverage=reorder(f.snapshot.evidence_coverage);
+  assert.equal(captureDigest(s),f.snapshot.evidence_ledger_digest);
+});
+test('digest field intentionally excluded from self-hash yet mismatches fail',()=>{
+  const f=fixture();
+  f.snapshot.evidence_ledger_digest='a'.repeat(64);
+  assert.equal(captureDigest(f.snapshot),captureDigest(fixture().snapshot));
+  const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.ok(result.reason_codes.includes('ACQUISITION_DIGEST_MISMATCH'));
+});
+test('delivery digest protects complete event payload, not a selected subset',()=>{
+  const cases=[
+    ['old_path',f=>{addDiff(f,'LEFT');f.ledger['ev-diff'].old_path='forged.ts'}],
+    ['total_lines',f=>{addFileSpan(f);f.ledger['ev-span'].total_lines=999}],
+    ['commit_sha',f=>{addFileSpan(f);f.ledger['ev-span'].commit_sha=SHA('d')}],
+    ['ref_side',f=>{addFileSpan(f);f.ledger['ev-span'].ref_side='BASE'}],
+    ['kind',f=>{addFileSpan(f);f.ledger['ev-span'].kind='DIFF_LINE'}],
+    ['side',f=>{addDiff(f,'LEFT');f.ledger['ev-diff'].side='RIGHT'}],
+    ['hunk_id',f=>{addDiff(f,'LEFT');f.ledger['ev-diff'].hunk_id='other'}],
+    ['line',f=>{addDiff(f,'LEFT');f.ledger['ev-diff'].line=99}],
+    ['delivered_start_line',f=>{addFileSpan(f);f.ledger['ev-span'].delivered_start_line=3}],
+    ['delivered_end_line',f=>{addFileSpan(f);f.ledger['ev-span'].delivered_end_line=4}],
+    ['path',f=>f.ledger['ev-a'].path='other.ts'],
+    ['redaction_state',f=>f.ledger['ev-a'].redaction_state='REDACTED'],
+    ['exposed_digest',f=>f.ledger['ev-a'].exposed_digest='f'.repeat(64)],
+    ['delivered',f=>f.ledger['ev-a'].delivered=false],
+    ['snapshot_id',f=>f.ledger['ev-a'].snapshot_id='another'],
+    ['head_sha',f=>f.ledger['ev-a'].head_sha=SHA('d')],
+    ['source_type',f=>{addPr(f);f.ledger['ev-pr'].source_type='CI'}],
+    ['delivery_seq',f=>f.ledger['ev-a'].delivery_seq=42],
+    ['new event metadata',f=>f.ledger['ev-a'].sensitivity='private']
+  ];
+  for(const [name,mutate] of cases){
+    const f=fixture();mutate(f);
+    assert.notEqual(deliveryDigest(f.ledger,f.snapshot),f.review.evidence_ledger_digest,name+' unprotected');
+    const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+    assert.equal(r.valid,false,name+' accepted COMPLETE');
+    assert.ok(r.reason_codes.includes('DELIVERY_DIGEST_MISMATCH') ||
+      r.reason_codes.includes('DELIVERY_LEDGER_INVALID'),name+': '+JSON.stringify(r));
+  }
+});
+test('evidence reference map key replacement is bound to delivered ledger digest',()=>{
+  const f=fixture();
+  f.ledger['ev-new']=f.ledger['ev-a'];delete f.ledger['ev-a'];
+  const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(r.valid,false);
+  assert.ok(r.reason_codes.includes('DELIVERY_DIGEST_MISMATCH'));
+});
+test('spoofed event id field cannot overwrite authoritative evidence_ref key',()=>{
+  const f=fixture();f.ledger['ev-a'].id='ev-another';
+  assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+  const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.ok(r.reason_codes.includes('DELIVERY_LEDGER_INVALID'));
+});
+test('delivery digest stable under object and map member order',()=>{
+  const f=fixture(),reorder=o=>Object.fromEntries(Object.entries(o).reverse());
+  const l=reorder(f.ledger);
+  for(const k of Object.keys(l))l[k]=reorder(l[k]);
+  assert.equal(deliveryDigest(l,f.snapshot),f.review.evidence_ledger_digest);
+});
+test('capture digest cannot be substituted for delivery digest',()=>{
+  const f=fixture();
+  assert.notEqual(f.snapshot.evidence_ledger_digest,f.review.evidence_ledger_digest);
+  f.review.evidence_ledger_digest=f.snapshot.evidence_ledger_digest;
+  f.live.evidence_ledger_digest=f.snapshot.evidence_ledger_digest;
+  const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.ok(r.reason_codes.includes('DELIVERY_DIGEST_MISMATCH'));
+});
