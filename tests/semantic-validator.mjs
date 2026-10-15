@@ -5,6 +5,7 @@
  * jsonschema for that gate. A missing gate fails closed.
  */
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const SCHEMA_GUARD = fileURLToPath(new URL('./schema-guard.py', import.meta.url));
@@ -27,6 +28,75 @@ function schemaGate(snapshot, review) {
   }
 }
 
+
+const digest = x => createHash('sha256').update(JSON.stringify(x),'utf8').digest('hex');
+export function captureDigest(s) {
+  return digest({
+    domain:'evidiff.capture.v1',snapshot_id:s.snapshot_id,repository_id:s.repository_id,
+    base_sha:s.base_sha,head_sha:s.head_sha,merge_base_sha:s.merge_base_sha,
+    selection_policy_id:s.selection_policy_id,manifest_digest:s.evidence_coverage.manifest_digest,
+    files:s.files.map(f=>({
+      path:f.path,previous_path:f.previous_path,status:f.status,scope:f.scope,
+      patch_sha256:f.patch_sha256,content_state:f.content_state
+    })).sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0)
+  });
+}
+function orderedEntries(ledger,snapshot) {
+  if (!ledger || typeof ledger!=='object'||Array.isArray(ledger)) return null;
+  const a=Object.entries(ledger).map(([id,v])=>({id,...v}));
+  a.sort((x,y)=>x.delivery_seq-y.delivery_seq);
+  if (!a.every((e,i)=>Number.isSafeInteger(e.delivery_seq)&&e.delivery_seq===i+1&&
+    e.delivered===true&&e.snapshot_id===snapshot.snapshot_id&&e.head_sha===snapshot.head_sha&&
+    /^[a-f0-9]{64}$/.test(e.exposed_digest||'') &&
+    ['NONE','REDACTED','BLOCKED'].includes(e.redaction_state))) return null;
+  return a;
+}
+export function deliveryDigest(ledger,snapshot) {
+  const a=orderedEntries(ledger,snapshot);
+  if (!a) return null;
+  return digest({
+    domain:'evidiff.delivery.v1',snapshot_id:snapshot.snapshot_id,
+    capture_digest:snapshot.evidence_ledger_digest,epoch:a.length,
+    events:a.map(e=>({
+      seq:e.delivery_seq,id:e.id,path:e.path||null,side:e.side||null,line:e.line||null,
+      hunk_id:e.hunk_id||null,ref_side:e.ref_side||null,commit_sha:e.commit_sha||null,
+      delivered_start_line:e.delivered_start_line||null,
+      delivered_end_line:e.delivered_end_line||null,
+      kind:e.kind||null,source_type:e.source_type||null,
+      exposed_digest:e.exposed_digest,redaction_state:e.redaction_state
+    }))
+  });
+}
+export function validateToolEnvelope(envelope,expectedSnapshotId,expectedRequestId) {
+  const r=schemaGateEnvelope(envelope);
+  if (!r.valid) return {valid:false,complete:false,reason_codes:r.reason_codes};
+  const reasons=[];
+  if (envelope.snapshot_id!==expectedSnapshotId ||
+      (envelope.status==='SUCCESS' &&
+      (envelope.result.snapshot_id!==expectedSnapshotId ||
+       envelope.result.snapshot_id!==envelope.snapshot_id)))
+    reasons.push('ENVELOPE_RECEIPT_SNAPSHOT_MISMATCH');
+  if (envelope.request_id!==expectedRequestId) reasons.push('ENVELOPE_REQUEST_ID_MISMATCH');
+  const complete=envelope.status==='SUCCESS' && envelope.result.valid===true &&
+    envelope.result.review_status==='COMPLETE';
+  return {valid:reasons.length===0,complete:reasons.length===0&&complete,reason_codes:reasons};
+}
+function schemaGateEnvelope(envelope) {
+  try {
+    const input=JSON.stringify({envelope});
+    if(Buffer.byteLength(input,'utf8')>2000000)
+      return {valid:false,reason_codes:['SCHEMA_INPUT_TOO_LARGE']};
+    const p=spawnSync('python3',[SCHEMA_GUARD],{input,encoding:'utf8',
+      timeout:8000,maxBuffer:32768,env:{PATH:process.env.PATH||'/usr/bin:/bin',
+      PYTHONDONTWRITEBYTECODE:'1'}});
+    if(p.error||p.status!==0)return {valid:false,reason_codes:['SCHEMA_GATE_UNAVAILABLE']};
+    const obj=JSON.parse(p.stdout);
+    if(typeof obj.valid!=='boolean'||!Array.isArray(obj.reason_codes))
+      return {valid:false,reason_codes:['SCHEMA_GATE_MALFORMED']};
+    return obj;
+  } catch { return {valid:false,reason_codes:['SCHEMA_GATE_UNAVAILABLE']}; }
+}
+
 export function validateSemantic(snapshot, review, live, ledger) {
   const reasons = [];
   const add = (code) => { if (!reasons.includes(code)) reasons.push(code); };
@@ -38,6 +108,22 @@ export function validateSemantic(snapshot, review, live, ledger) {
   if (!live || !ledger || typeof ledger !== 'object')
     return {valid:false,review_status:'FAILED',reason_codes:['MISSING_TRUSTED_SERVER_INPUT']};
 
+  // Two separate ledgers: acquisition is sealed with the Snapshot and delivered evidence evolves by epoch.
+  const capture=captureDigest(snapshot);
+  if(!/^[a-f0-9]{64}$/.test(snapshot.evidence_ledger_digest||''))add('MISSING_ACQUISITION_DIGEST');
+  else if(snapshot.evidence_ledger_digest!==capture)add('ACQUISITION_DIGEST_MISMATCH');
+  const events=orderedEntries(ledger,snapshot);
+  const epoch=events?.length;
+  const calculatedDelivery=deliveryDigest(ledger,snapshot);
+  if(!calculatedDelivery)add('DELIVERY_LEDGER_INVALID');
+  if(!/^[a-f0-9]{64}$/.test(review.evidence_ledger_digest||'')||
+     !/^[a-f0-9]{64}$/.test(live.evidence_ledger_digest||''))add('MISSING_DELIVERY_DIGEST');
+  if(!Number.isSafeInteger(review.evidence_delivery_epoch) ||
+     !Number.isSafeInteger(live.evidence_delivery_epoch) ||
+     epoch!==review.evidence_delivery_epoch||epoch!==live.evidence_delivery_epoch)
+    add('DELIVERY_EPOCH_MISMATCH');
+  if(calculatedDelivery && (review.evidence_ledger_digest!==calculatedDelivery ||
+     live.evidence_ledger_digest!==calculatedDelivery))add('DELIVERY_DIGEST_MISMATCH');
   if (snapshot.snapshot_id !== review.snapshot_id || snapshot.head_sha !== review.head_sha ||
       snapshot.base_sha !== review.base_sha || snapshot.merge_base_sha !== review.merge_base_sha)
     add('PIN_MISMATCH');
@@ -140,7 +226,7 @@ export function validateSemantic(snapshot, review, live, ledger) {
   }
   if (review.review_status !== 'COMPLETE') add('MODEL_NOT_COMPLETE');
   if (review.limitations.length || snapshot.limitations.length) add('UNRESOLVED_LIMITATIONS');
-  if (review.evidence_ledger_digest !== live.evidence_ledger_digest) add('LEDGER_DIGEST_MISMATCH');
+  // Digest/epoch above are re-derived from server-owned entries, not merely compared to each other.
   const stale = live.head_sha !== snapshot.head_sha || live.base_sha !== snapshot.base_sha ||
                 live.merge_base_sha !== snapshot.merge_base_sha || live.repository_id !== snapshot.repository_id;
   if (stale) add('STALE_BASELINE');

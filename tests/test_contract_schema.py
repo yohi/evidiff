@@ -124,6 +124,28 @@ class TestContracts(unittest.TestCase):
     def test_tool_success_envelope_with_nested_receipt_valid(self):
         self.assert_valid(self.envelope,self.sample_envelope(self.sample_receipt()))
 
+    def test_complete_review_with_null_delivery_digest_denied(self):
+        x=doc("../tests/example-review-result.json")
+        x["evidence_ledger_digest"]=None
+        self.assert_invalid(self.review,x)
+
+    def test_complete_review_with_missing_epoch_denied(self):
+        x=doc("../tests/example-review-result.json")
+        del x["evidence_delivery_epoch"]
+        self.assert_invalid(self.review,x)
+
+    def test_ready_snapshot_with_null_capture_digest_denied(self):
+        x=doc("../tests/example-review-snapshot.json")
+        x["evidence_ledger_digest"]=None
+        self.assert_invalid(self.snapshot,x)
+
+    def test_mismatched_snapshot_structurally_valid_semantically_denied(self):
+        x=self.sample_envelope(self.sample_receipt())
+        x["result"]["snapshot_id"]="snapshot-B"
+        # Draft2020-12 cannot express generic equality between the two fields.
+        # Semantic validateToolEnvelope is required to reject this.
+        self.assert_valid(self.envelope,x)
+
     def test_tool_envelope_missing_request_id_denied(self):
         x=self.sample_envelope(self.sample_receipt());del x["request_id"]
         self.assert_invalid(self.envelope,x)

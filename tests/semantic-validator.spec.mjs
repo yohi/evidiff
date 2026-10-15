@@ -1,9 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateSemantic } from './semantic-validator.mjs';
+import { validateSemantic, captureDigest, deliveryDigest, validateToolEnvelope } from './semantic-validator.mjs';
 
 const SHA = c => c.repeat(40);
 const clone = x => structuredClone(x);
+function syncAcquisition(f) {
+  f.snapshot.evidence_ledger_digest=captureDigest(f.snapshot);
+}
+function syncDelivery(f) {
+  const ev=Object.entries(f.ledger);
+  for(let i=0;i<ev.length;i++){
+    ev[i][1].delivery_seq=i+1;
+    if(!ev[i][1].exposed_digest)ev[i][1].exposed_digest=(i%9+1).toString().repeat(64);
+  }
+  f.review.evidence_delivery_epoch=ev.length;
+  f.live.evidence_delivery_epoch=ev.length;
+  f.review.evidence_ledger_digest=deliveryDigest(f.ledger,f.snapshot);
+  f.live.evidence_ledger_digest=f.review.evidence_ledger_digest;
+}
 
 function file(path='a.ts') {
   return {path, previous_path:null, status:'modified', scope:'INCLUDED',
@@ -40,7 +54,7 @@ function fixture() {
     'ev-b':{delivered:true,path:'b.ts',snapshot_id:snapshot.snapshot_id,
       head_sha:snapshot.head_sha,redaction_state:'NONE'}
   };
-  return {snapshot,review,live,ledger};
+  const f={snapshot,review,live,ledger};syncAcquisition(f);syncDelivery(f);return f;
 }
 const defaultFinding = () => ({
   finding_id:'F-1',title:'Defect',severity:'high',category:'correctness',
@@ -67,6 +81,7 @@ function addFileSpan(f, changes={}) {
     commit_sha:f.snapshot.head_sha,ref_side:'HEAD',total_lines:100,
     delivered_start_line:1,delivered_end_line:10,
     exposed_digest:'f'.repeat(64),redaction_state:'NONE'};
+  syncDelivery(f);
   return anchor;
 }
 function addDiff(f,side='LEFT',changes={}) {
@@ -79,6 +94,8 @@ function addDiff(f,side='LEFT',changes={}) {
     snapshot_id:f.snapshot.snapshot_id,head_sha:f.snapshot.head_sha,side,line:4,
     hunk_id:'hunk-a',commit_sha:side==='LEFT'?f.snapshot.merge_base_sha:f.snapshot.head_sha,
     delivered_start_line:2,delivered_end_line:7,redaction_state:'NONE'};
+  syncAcquisition(f);
+  syncDelivery(f);
   return anchor;
 }
 function addPr(f,changes={}) {
@@ -87,6 +104,7 @@ function addPr(f,changes={}) {
   f.review.findings=[{...defaultFinding(),evidence:[anchor]}];
   f.ledger['ev-pr']={kind:'PR_LEVEL',source_type:'CROSS_FILE',delivered:true,
     snapshot_id:f.snapshot.snapshot_id,head_sha:f.snapshot.head_sha,redaction_state:'NONE'};
+  syncDelivery(f);
   return anchor;
 }
 
@@ -109,7 +127,7 @@ run('unverified diff',f=>{f.snapshot.evidence_coverage.diff_integrity='UNVERIFIE
 run('HEAD force pushed',f=>{f.live.head_sha=SHA('f')},false,'STALE_BASELINE');
 run('base moved despite same merge base',f=>{f.live.base_sha=SHA('f')},false,'STALE_BASELINE');
 run('merge base moved',f=>{f.live.merge_base_sha=SHA('f')},false,'STALE_BASELINE');
-run('ledger digest mismatch',f=>{f.review.evidence_ledger_digest='f'.repeat(64)},false,'LEDGER_DIGEST_MISMATCH');
+run('ledger digest mismatch',f=>{f.review.evidence_ledger_digest='f'.repeat(64)},false,'DELIVERY_DIGEST_MISMATCH');
 run('review attestation ref blocked',f=>{f.ledger['ev-a'].redaction_state='BLOCKED'},false,'ATTESTATION_EVIDENCE_INVALID');
 run('snapshot not READY',f=>{f.snapshot.state='PARTIAL'},false,'SNAPSHOT_NOT_READY');
 run('undisclosed limitation',f=>{f.snapshot.limitations.push('CI unavailable')},false,'UNRESOLVED_LIMITATIONS');
@@ -134,3 +152,98 @@ run('DIFF_LINE right/left mismatch',f=>{addDiff(f,'LEFT',{side:'RIGHT'})},false,
 run('masked source cannot prove CONFIRMED_SOURCE',f=>{addPr(f,{redaction_state:'REDACTED'});f.ledger['ev-pr'].redaction_state='REDACTED';f.review.findings[0].verification='CONFIRMED_SOURCE'},false,'MASKED_SOLE_EVIDENCE');
 run('reference validator cannot prove runtime execution',f=>{addPr(f);f.review.findings[0].verification='CONFIRMED_RUNTIME'},false,'UNSUPPORTED_RUNTIME_ASSERTION');
 run('model cannot self-authorize RESOLVED',f=>{addPr(f);f.review.findings[0].lifecycle='RESOLVED'},false,'LIFECYCLE_REQUIRES_REGISTRY');
+
+
+// R2-IR-NEW-001: two digest domains and a versioned delivery-event epoch.
+run('three simultaneously null digests must NEVER accept COMPLETE',f=>{
+  f.snapshot.evidence_ledger_digest=null;
+  f.review.evidence_ledger_digest=null;
+  f.live.evidence_ledger_digest=null;
+},false,'SCHEMA_SNAPSHOT_INVALID');
+run('null acquisition digest forbidden at READY',f=>{
+  f.snapshot.evidence_ledger_digest=null;
+},false,'SCHEMA_SNAPSHOT_INVALID');
+run('null proposed delivery digest forbidden at COMPLETE',f=>{
+  f.review.evidence_ledger_digest=null;
+},false,'SCHEMA_REVIEW_INVALID');
+run('trusted live delivery digest null forbidden',f=>{
+  f.live.evidence_ledger_digest=null;
+},false,'MISSING_DELIVERY_DIGEST');
+run('arbitrary but matching digest values are NOT sufficient',f=>{
+  f.review.evidence_ledger_digest='f'.repeat(64);
+  f.live.evidence_ledger_digest='f'.repeat(64);
+},false,'DELIVERY_DIGEST_MISMATCH');
+run('acquisition capture digest tampering denied',f=>{
+  f.snapshot.evidence_ledger_digest='a'.repeat(64);
+},false,'ACQUISITION_DIGEST_MISMATCH');
+run('delivery epoch is bound to submitted report',f=>{
+  f.review.evidence_delivery_epoch=999;
+},false,'DELIVERY_EPOCH_MISMATCH');
+run('new delivery event after review cannot silently pass at old epoch',f=>{
+  f.ledger['ev-late']={delivered:true,path:'a.ts',snapshot_id:f.snapshot.snapshot_id,
+    head_sha:f.snapshot.head_sha,redaction_state:'NONE',delivery_seq:3,
+    exposed_digest:'9'.repeat(64)};
+},false,'DELIVERY_EPOCH_MISMATCH');
+run('missing delivery event sequence rejected',f=>{
+  f.ledger['ev-b'].delivery_seq=7;
+},false,'DELIVERY_LEDGER_INVALID');
+run('delivered byte digest mutation rejected',f=>{
+  f.ledger['ev-a'].exposed_digest='f'.repeat(64);
+},false,'DELIVERY_DIGEST_MISMATCH');
+
+function envelopeFixture() {
+  const snapshotId='sha256:fixture';
+  const receipt={
+    schema_version:'0.2.0',validation_id:'val:fixture',snapshot_id:snapshotId,
+    snapshot_manifest_digest:'d'.repeat(64),result_digest:'e'.repeat(64),
+    review_status:'COMPLETE',valid:true,reason_codes:[],verified_reviewed_files:2,
+    verified_eligible_files:2,checked_current_head_sha:SHA('b'),
+    checked_current_base_sha:SHA('a'),checked_current_merge_base_sha:SHA('c'),
+    verified_at:'2026-10-16T00:00:00Z',finding_identities:[],signature:null
+  };
+  return {
+    schema_version:'0.2.0',request_id:'req:fixture',snapshot_id:snapshotId,
+    status:'SUCCESS',provenance:[{source:'server',resource:'receipt'}],
+    limitations:[],result:receipt
+  };
+}
+test('R2-IR-NEW-002: matching Envelope/Receipt Snapshot ID accepted',()=>{
+  const e=envelopeFixture();
+  const x=validateToolEnvelope(e,'sha256:fixture','req:fixture');
+  assert.equal(x.valid,true,JSON.stringify(x));
+  assert.equal(x.complete,true);
+});
+test('R2-IR-NEW-002: structurally valid but mismatched inner snapshot REJECTED',()=>{
+  const e=envelopeFixture();e.result.snapshot_id='snapshot-B';
+  const x=validateToolEnvelope(e,'sha256:fixture','req:fixture');
+  assert.equal(x.valid,false);
+  assert.ok(x.reason_codes.includes('ENVELOPE_RECEIPT_SNAPSHOT_MISMATCH'));
+  assert.equal(x.complete,false);
+});
+test('R2-IR-NEW-002: wrong outer snapshot versus expected request REJECTED',()=>{
+  const e=envelopeFixture();e.snapshot_id='snapshot-B';
+  const x=validateToolEnvelope(e,'sha256:fixture','req:fixture');
+  assert.equal(x.valid,false);
+  assert.ok(x.reason_codes.includes('ENVELOPE_RECEIPT_SNAPSHOT_MISMATCH'));
+});
+test('R2-IR-NEW-002: wrong request nonce REJECTED',()=>{
+  const e=envelopeFixture();
+  const x=validateToolEnvelope(e,'sha256:fixture','req:other');
+  assert.equal(x.valid,false);
+  assert.ok(x.reason_codes.includes('ENVELOPE_REQUEST_ID_MISMATCH'));
+});
+test('R2-IR-NEW-002: schema-invalid envelope FAIL CLOSED',()=>{
+  const e=envelopeFixture();delete e.request_id;
+  const x=validateToolEnvelope(e,'sha256:fixture','req:fixture');
+  assert.equal(x.valid,false);
+  assert.ok(x.reason_codes.includes('SCHEMA_ENVELOPE_INVALID'));
+});
+test('PARTIAL Receipt can be valid envelope but never COMPLETE',()=>{
+  const e=envelopeFixture();
+  e.result.review_status='PARTIAL';
+  e.result.valid=false;
+  e.result.reason_codes=['REVIEW_SCOPE_GAP'];
+  const x=validateToolEnvelope(e,'sha256:fixture','req:fixture');
+  assert.equal(x.valid,true,JSON.stringify(x));
+  assert.equal(x.complete,false);
+});

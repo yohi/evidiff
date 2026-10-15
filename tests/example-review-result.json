@@ -31,5 +31,6 @@
   ],
   "findings": [],
   "limitations": [],
-  "evidence_ledger_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  "evidence_ledger_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "evidence_delivery_epoch": 2
 }

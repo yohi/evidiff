@@ -17,7 +17,8 @@
     "review_attestations",
     "findings",
     "limitations",
-    "evidence_ledger_digest"
+    "evidence_ledger_digest",
+    "evidence_delivery_epoch"
   ],
   "properties": {
     "schema_version": {
@@ -560,6 +561,32 @@
     "generated_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "evidence_delivery_epoch": {
+      "type": "integer",
+      "minimum": 0
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "review_status": {
+            "const": "COMPLETE"
+          }
+        },
+        "required": [
+          "review_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_ledger_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  ]
 }

@@ -117,3 +117,21 @@ Offline test commands:
 - node --test tests/semantic-validator.spec.mjs
 
 Both are local/synthetic-contract verification only. CI must be independently observed.
+
+
+## R2-IR-NEW-001/002 regression gates
+
+| ID | Case | Expected |
+|---|---|---|
+| R2-NEW-001-A | snapshot + review + live digest all null | NOT COMPLETE |
+| R2-NEW-001-B | digest values nonnull and equal but fabricated | NOT COMPLETE |
+| R2-NEW-001-C | acquisition digest missing or tampered | NOT COMPLETE |
+| R2-NEW-001-D | delivered ledger bytes/digest change after model report | NOT COMPLETE |
+| R2-NEW-001-E | evidence event added after review's declared epoch | DELIVERY_EPOCH_MISMATCH |
+| R2-NEW-001-F | duplicate/missing event sequence or delivery proof missing | DELIVERY_LEDGER_INVALID |
+| R2-NEW-002-A | envelope/receipt snapshot IDs both match expected | Valid, COMPLETE possible if receipt COMPLETE |
+| R2-NEW-002-B | valid JSON with two different Snapshot IDs | ENVELOPE_RECEIPT_SNAPSHOT_MISMATCH |
+| R2-NEW-002-C | incorrect authenticated request ID | ENVELOPE_REQUEST_ID_MISMATCH |
+| R2-NEW-002-D | schema-invalid envelope | SCHEMA_ENVELOPE_INVALID |
+
+All are **offline synthetic contract tests**, not runtime GitHub/MCP proofs.
