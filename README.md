@@ -52,3 +52,8 @@ The offline reference now derives acquisition and delivery digests from Canonica
 ### R2-IR-NEW-003-F01/F02 limited correction
 
 Sparse arrays and non-JSON record properties are now fail-closed in the canonical reference encoder. Independent fixed UTF-8 / SHA-256 golden test vectors cover numeric, Unicode ordering, nested arrays, unknown event fields, and capture/delivery domains. See tests/canonical-golden-vectors.json and the R2-IR-NEW-003-F01/F02 contract in contracts/MCP_TOOLS.md. Draft PR remains unmerged and awaiting independent recheck; production G0-G4 unproven.
+
+
+### F01-NEW-001/002 root ledger follow-up
+
+The F01 independent recheck detected inherited, unsealed evidence and root getter hazards. The offline validator now checks ledger-root own property descriptors/prototype, builds a detached canonical evidence Map once, and uses it for both delivery digests and Finding/attestation lookup. See contracts/MCP_TOOLS.md and the negative regression tests. Draft PR remains unmerged; G0-G4 and production MCP safeguards remain unproven.

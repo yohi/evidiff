@@ -482,3 +482,108 @@ test('array order changes digest and object member order does not',()=>{
   assert.notEqual(canonicalDigest({items:[null,1]}),canonicalDigest({items:[1,null]}));
   assert.equal(canonicalDigest({z:1,a:null}),canonicalDigest({a:null,z:1}));
 });
+
+
+// F01-NEW-001/002: the root ledger is the trusted boundary, not Object.entries
+// on an arbitrary object or bracket lookups through its prototype chain.
+test('F01-NEW-001 hidden ledger entry must fail closed',()=>{
+  const f=fixture();
+  Object.defineProperty(f.ledger,'ghost',{
+    value:{...f.ledger['ev-a'],delivery_seq:3},
+    enumerable:false
+  });
+  assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+  const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(result.valid,false);
+  assert.notEqual(result.review_status,'COMPLETE');
+  assert.ok(result.reason_codes.includes('DELIVERY_LEDGER_INVALID'),JSON.stringify(result));
+});
+test('F01-NEW-001 inherited evidence cannot prove review completion',()=>{
+  const f=fixture();
+  Object.setPrototypeOf(f.ledger,{ghost:{...f.ledger['ev-a']}});
+  f.review.review_attestations[0].review_proof_refs=['ghost'];
+  const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(result.valid,false);
+  assert.notEqual(result.review_status,'COMPLETE');
+  assert.ok(result.reason_codes.includes('DELIVERY_LEDGER_INVALID'),JSON.stringify(result));
+});
+test('F01-NEW-001 prototype member name cannot substitute for own evidence ref',()=>{
+  const f=fixture();
+  f.review.review_attestations[0].review_proof_refs=['toString'];
+  const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(result.valid,false);
+  assert.notEqual(result.review_status,'COMPLETE');
+  assert.ok(result.reason_codes.includes('ATTESTATION_EVIDENCE_INVALID'),JSON.stringify(result));
+});
+test('F01-NEW-001 inherited PR_LEVEL evidence cannot validate a finding',()=>{
+  const f=fixture();
+  addPr(f);
+  const copy={...f.ledger['ev-pr']};
+  delete f.ledger['ev-pr'];
+  Object.setPrototypeOf(f.ledger,{ghost:copy});
+  f.review.findings[0].evidence[0].evidence_ref='ghost';
+  const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(result.valid,false);
+  assert.notEqual(result.review_status,'COMPLETE');
+  assert.ok(result.reason_codes.includes('DELIVERY_LEDGER_INVALID'),JSON.stringify(result));
+});
+test('F01-NEW-001 Symbol ledger key cannot be silently omitted',()=>{
+  const f=fixture();
+  f.ledger[Symbol('hidden')]={...f.ledger['ev-a'],delivery_seq:3};
+  assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+  const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(r.valid,false);
+  assert.ok(r.reason_codes.includes('DELIVERY_LEDGER_INVALID'),JSON.stringify(r));
+});
+test('F01-NEW-002 enumerable root getter must not execute, including throwing getter',()=>{
+  for(const type of ['return','throw']){
+    const f=fixture();
+    let calls=0;
+    Object.defineProperty(f.ledger,'ghost',{
+      enumerable:true,
+      get(){
+        calls++;
+        if(type==='throw')throw new Error('root getter executed');
+        return {...f.ledger['ev-a'],delivery_seq:3};
+      }
+    });
+    assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+    const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+    assert.equal(result.valid,false);
+    assert.notEqual(result.review_status,'COMPLETE');
+    assert.ok(result.reason_codes.includes('DELIVERY_LEDGER_INVALID'),JSON.stringify(result));
+    assert.equal(calls,0,'root getter was executed');
+  }
+});
+test('F01-NEW-002 nonenumerable root getter cannot be ignored or evaluated',()=>{
+  const f=fixture();let calls=0;
+  Object.defineProperty(f.ledger,'ghost',{enumerable:false,get(){calls++;return f.ledger['ev-a'];}});
+  assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+  const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(r.valid,false);
+  assert.equal(calls,0);
+});
+test('F01-NEW-001 abnormal root prototype rejected even without a ghost member',()=>{
+  const f=fixture();
+  Object.setPrototypeOf(f.ledger,{});
+  assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+  const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.ok(r.reason_codes.includes('DELIVERY_LEDGER_INVALID'),JSON.stringify(r));
+});
+test('F01-NEW-001 legitimate null-prototype root ledger remains accepted',()=>{
+  const f=fixture();
+  f.ledger=Object.assign(Object.create(null),f.ledger);
+  const result=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(result.valid,true,JSON.stringify(result));
+  assert.equal(result.review_status,'COMPLETE');
+  assert.equal(deliveryDigest(f.ledger,f.snapshot),f.review.evidence_ledger_digest);
+});
+test('F01-NEW-001 modifying own sealed event still invalidates review',()=>{
+  const f=fixture();
+  const captured=f.review.evidence_ledger_digest;
+  f.ledger['ev-a'].delivered_start_line=42;
+  assert.notEqual(deliveryDigest(f.ledger,f.snapshot),captured);
+  const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(r.valid,false);
+  assert.ok(r.reason_codes.includes('DELIVERY_DIGEST_MISMATCH'),JSON.stringify(r));
+});

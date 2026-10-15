@@ -119,35 +119,56 @@ export function captureDigest(snapshot) {
  * of its metadata (including old_path, total_lines, intervals, side and flags)
  * and is explicitly bound to the ledger key, preventing key/id substitution.
  */
-function orderedEntries(ledger,snapshot) {
-  if(!ledger || typeof ledger!=='object' || Array.isArray(ledger))return null;
-  const entries=[];
-  for(const [id,record] of Object.entries(ledger)) {
-    try {
-      const copy=ownDataOnly(record);
-      if(Object.hasOwn(copy,'id') || !id)return null;
-      copy.id=id;
-      entries.push(copy);
-    } catch {return null;}
-  }
-  entries.sort((a,b)=>a.delivery_seq-b.delivery_seq);
-  if(!entries.every((e,i)=>Number.isSafeInteger(e.delivery_seq)&&e.delivery_seq===i+1&&
-     e.delivered===true&&e.snapshot_id===snapshot.snapshot_id&&e.head_sha===snapshot.head_sha&&
-     /^[a-f0-9]{64}$/.test(e.exposed_digest||'') &&
-     ['NONE','REDACTED','BLOCKED'].includes(e.redaction_state)))return null;
-  return entries;
+/**
+ * Validate the ROOT ledger and each own record before inspecting evidence.
+ * Produce one detached canonical copy for BOTH hashing and reference lookup.
+ * No accessor or inherited property on the source ledger is read as evidence.
+ */
+function prepareDeliveryLedger(ledger,snapshot) {
+  try {
+    const root=ownDataOnly(ledger);
+    const entries=[];
+    for(const [id,record] of Object.entries(root)) {
+      if(!id) return null;
+      const ownRecord=ownDataOnly(record);
+      if(Object.hasOwn(ownRecord,'id'))return null;
+      ownRecord.id=id;
+      entries.push(ownRecord);
+    }
+    entries.sort((a,b)=>a.delivery_seq-b.delivery_seq);
+    if(!entries.every((e,i)=>
+        Number.isSafeInteger(e.delivery_seq) && e.delivery_seq===i+1 &&
+        e.delivered===true && e.snapshot_id===snapshot.snapshot_id &&
+        e.head_sha===snapshot.head_sha &&
+        /^[a-f0-9]{64}$/.test(e.exposed_digest||'') &&
+        ['NONE','REDACTED','BLOCKED'].includes(e.redaction_state)))return null;
+    const payload={
+      digest_domain:'evidiff.delivery.v2',
+      digest_encoding:'canonical-json-v2',
+      snapshot_id:snapshot.snapshot_id,
+      acquisition_digest:snapshot.evidence_ledger_digest,
+      epoch:entries.length,
+      entries
+    };
+    // One encoder invocation checks all nested JSON data properties. The
+    // canonical text is authoritative for both the digest and the lookup map;
+    // later mutation of the original ledger cannot introduce new evidence.
+    const canonical=canonicalJSON(payload);
+    const sealed=JSON.parse(canonical);
+    const evidenceById=new Map();
+    for(const entry of sealed.entries) {
+      if(evidenceById.has(entry.id))return null;
+      evidenceById.set(entry.id,entry);
+    }
+    return {
+      digest:createHash('sha256').update(canonical,'utf8').digest('hex'),
+      epoch:sealed.epoch,
+      evidenceById
+    };
+  } catch {return null;}
 }
 export function deliveryDigest(ledger,snapshot) {
-  const entries=orderedEntries(ledger,snapshot);
-  if(!entries)return null;
-  return canonicalDigest({
-    digest_domain:'evidiff.delivery.v2',
-    digest_encoding:'canonical-json-v2',
-    snapshot_id:snapshot.snapshot_id,
-    acquisition_digest:snapshot.evidence_ledger_digest,
-    epoch:entries.length,
-    entries
-  });
+  return prepareDeliveryLedger(ledger,snapshot)?.digest ?? null;
 }
 
 export function validateToolEnvelope(envelope,expectedSnapshotId,expectedRequestId) {
@@ -195,10 +216,13 @@ export function validateSemantic(snapshot, review, live, ledger) {
   const capture=captureDigest(snapshot);
   if(!/^[a-f0-9]{64}$/.test(snapshot.evidence_ledger_digest||''))add('MISSING_ACQUISITION_DIGEST');
   else if(snapshot.evidence_ledger_digest!==capture)add('ACQUISITION_DIGEST_MISMATCH');
-  const events=orderedEntries(ledger,snapshot);
-  const epoch=events?.length;
-  const calculatedDelivery=deliveryDigest(ledger,snapshot);
-  if(!calculatedDelivery)add('DELIVERY_LEDGER_INVALID');
+  const delivery=prepareDeliveryLedger(ledger,snapshot);
+  const epoch=delivery?.epoch;
+  const calculatedDelivery=delivery?.digest ?? null;
+  if(!delivery)add('DELIVERY_LEDGER_INVALID');
+  // The same detached, validated, canonical event records are used for
+  // BOTH digest/epoch calculation and proof/anchor lookups.
+  const evidenceById=delivery?.evidenceById ?? new Map();
   if(!/^[a-f0-9]{64}$/.test(review.evidence_ledger_digest||'')||
      !/^[a-f0-9]{64}$/.test(live.evidence_ledger_digest||''))add('MISSING_DELIVERY_DIGEST');
   if(!Number.isSafeInteger(review.evidence_delivery_epoch) ||
@@ -236,7 +260,7 @@ export function validateSemantic(snapshot, review, live, ledger) {
   if (attest.length !== inspected.length || new Set(attest.map(a => a.path)).size !== attest.length ||
       attest.some(a => !inspected.includes(a.path))) add('ATTESTATION_SET_MISMATCH');
   const evidenceValid = (ref, path) => {
-    const ev = ledger[ref];
+    const ev = evidenceById.get(ref);
     return !!ev && ev.delivered === true && ev.snapshot_id === snapshot.snapshot_id &&
       ev.head_sha === snapshot.head_sha && ev.path === path &&
       ev.redaction_state !== 'BLOCKED';
@@ -247,7 +271,7 @@ export function validateSemantic(snapshot, review, live, ledger) {
   }
 
   function checkAnchor(anchor) {
-    const ev = ledger[anchor.evidence_ref];
+    const ev = evidenceById.get(anchor.evidence_ref);
     if (!ev || !ev.delivered || ev.snapshot_id !== snapshot.snapshot_id ||
         ev.head_sha !== snapshot.head_sha) {
       add('EVIDENCE_NOT_IN_LEDGER'); return false;

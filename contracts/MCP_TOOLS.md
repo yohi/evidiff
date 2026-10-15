@@ -220,3 +220,21 @@ tests/canonical-golden-vectors.json has four hand-authored canonical UTF-8 expec
 Node asserts exact emitted bytes, SHA-256 and capture/delivery digests against immutable known-answer constants. Python independently recomputes SHA-256 from the handwritten expected UTF-8 strings and compares with separately hardcoded digests; no test oracle derives expected bytes from the code under test. Negative cases explicitly include sparse arrays, event metadata mutation, non-index properties, symbols, accessors, hidden properties, invalid JSON values and non-COMPLETE on malformed digest input.
 
 These tests establish limited synthetic reference behavior only. Actual immutable Git objects, emitted-byte provenance, protected seals, authentic principal-scoped ledger and G0–G4 remain NOT_PROVEN. An independent reviewer must recheck F01/F02 and the fixed CI result before proposal-level closure.
+
+
+## F01-NEW-001 / F01-NEW-002 — Ledger Root and Same-Seal Evidence Lookup
+
+This is the normative limited correction for two residual findings in the fresh independent F01 recheck at parent HEAD cb8e2771748a24b04fa5d22789d472b0ae98e945. F02 was independently accepted in limited scope and its golden vectors are unchanged.
+
+### Root and record integrity
+
+1. The ledger root MUST have either Object.prototype or a null prototype. Its entire Reflect.ownKeys set MUST be enumerable string-keyed data properties with no Symbols, accessors, hidden data properties, or non-JSON metadata. All event records MUST pass the same strict own-data descriptor validation. Use property descriptors BEFORE Object.entries or reading values; do not execute an accessor as part of validation. Invalid or exotic ledger roots return DELIVERY_LEDGER_INVALID and can NEVER grant COMPLETE.
+2. The ledger MUST be copied into a null-prototype data-only object after descriptor checks; reject unsealed inherited members and getters. Build ordered, contiguous delivery entries from that copy. Validate snapshot/head/sequence, redaction state and emitted digest constraints as before. All nested JSON structures also pass canonicalJSON fail-closed checks.
+3. Produce one detached, canonical copy of those entries from the same canonical bytes used to derive the SHA-256 delivery digest. Construct a server-owned Map keyed by the sealed evidence reference ID. Attestation proof and Finding anchor lookups MUST use this Map; raw ledger[ref], inherited properties, stale alternate maps or unvalidated entries MUST NOT be used.
+4. The same prepared delivery object supplies digest, epoch and evidence Map during one validateSemantic call. If ledger preparation fails, evidence Map is empty and the verdict remains non-COMPLETE. This is a reference design; real production server implementation needs authorization, protected seals, atomic event storage, emitted byte binding and mutation controls.
+
+### Targeted regression evidence
+
+Add negative cases for hidden root records, Symbol keys, enumerable/nonenumerable root getters (including a throwing getter), abnormal root prototypes, inherited ghost attestation and inherited PR_LEVEL Finding proof. Include positive control for ordinary and null-prototype own-entry ledgers, plus own sealed-record mutation detection. Ensure no attacker-provided getter executes and all invalid roots fail closed before evidence lookup.
+
+**Status:** proposal-only limited correction; independent F01 fresh recheck and exact-head CI required. F02 independent golden oracle is unchanged. G0-G4 NOT_PROVEN, no Private Repo integration or deployment authorized.

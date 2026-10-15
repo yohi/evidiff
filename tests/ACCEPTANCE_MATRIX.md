@@ -169,3 +169,20 @@ Only offline synthetic contract tests. No evidence that G0–G4 has been execute
 | F02-04 | Object key reorder versus array element reorder | Key reorder stable; array reorder distinct |
 
 The independent oracle values were calculated from manually authored strings using Python hashlib, not canonicalJSON.
+
+## F01-NEW-001/002 — Root Ledger Trust Boundary
+
+| ID | Case | Required |
+|---|---|---|
+| F01-ROOT-01 | Hidden/nonenumerable ledger root evidence | Digest null and no COMPLETE |
+| F01-ROOT-02 | Inherited ghost evidence used in review attestation | Rejected, no COMPLETE |
+| F01-ROOT-03 | Inherited PR_LEVEL proof referenced in a Finding | Rejected, no COMPLETE |
+| F01-ROOT-04 | Symbol root evidence | Rejected, no COMPLETE |
+| F01-ROOT-05 | Root enumerable getter (returns/throws) | Getter never executed; rejected |
+| F01-ROOT-06 | Root nonenumerable getter | Getter never executed; rejected |
+| F01-ROOT-07 | Unexpected root prototype | Rejected |
+| F01-ROOT-08 | Null-prototype ledger with genuine sealed own entries | Accepted when all other gates pass |
+| F01-ROOT-09 | Mutated existing own sealed event after digest | Delivery digest mismatch |
+| F01-ROOT-10 | Model uses built-in inherited key as evidence_ref | Lookup denied |
+
+These are synthetic offline tests, not production authorization/ledger authenticity evidence.
