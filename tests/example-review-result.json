@@ -1,0 +1,36 @@
+{
+  "schema_version": "0.2.0",
+  "snapshot_id": "sha256:fixture",
+  "model_family": "chatgpt",
+  "review_policy": "review-policy-v0.2",
+  "review_status": "COMPLETE",
+  "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "merge_base_sha": "cccccccccccccccccccccccccccccccccccccccc",
+  "reviewed_paths": [
+    "a.ts",
+    "b.ts"
+  ],
+  "review_attestations": [
+    {
+      "path": "a.ts",
+      "review_proof_refs": [
+        "ev-a.ts"
+      ],
+      "reviewed_scope": "all changed logic",
+      "analysis_complete": true
+    },
+    {
+      "path": "b.ts",
+      "review_proof_refs": [
+        "ev-b.ts"
+      ],
+      "reviewed_scope": "all changed logic",
+      "analysis_complete": true
+    }
+  ],
+  "findings": [],
+  "limitations": [],
+  "evidence_ledger_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "evidence_delivery_epoch": 2
+}

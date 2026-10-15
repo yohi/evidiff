@@ -1,0 +1,30 @@
+{
+  "name": "github-pr-independent-review",
+  "version": "0.2.1",
+  "description": "Draft: read-only evidence-grounded PR code review for ChatGPT Web",
+  "repository": "https://github.com/yohi/evidiff",
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "keywords": [
+    "github",
+    "pr",
+    "code-review"
+  ],
+  "author": {
+    "name": "yohi"
+  },
+  "interface": {
+    "displayName": "Evidiff PR Review",
+    "shortDescription": "Evidence-based PR reviews",
+    "longDescription": "Review a GitHub pull request URL in ChatGPT Web with evidence acquired by a read-only Remote MCP server. The initial package is a design prototype: no MCP deployment or validated integration exists, and private repositories remain unsupported pending security testing.",
+    "developerName": "yohi",
+    "category": "Developer Tools",
+    "capabilities": [
+      "github",
+      "code-review",
+      "read-only"
+    ],
+    "websiteURL": "https://github.com/yohi/evidiff"
+  }
+}

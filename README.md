@@ -1,0 +1,63 @@
+# Evidiff — Independent PR Review Design v0.1
+
+設計基準日: 2026-10-16 (JST)
+状態: **PROPOSED / NOT_IMPLEMENTED / NOT_RUNTIME_VERIFIED**
+
+ChatGPT Web PluginとGemini Web Skills（Gem移行期はGem互換）から、共通Remote MCPを通してGitHub Pull RequestのSHA固定証跡を取得し、それぞれ独立にレビューするための設計です。
+
+## Design documents
+
+- [Architecture and threat model](docs/DESIGN.md)
+- [Read-only MCP tool contract](contracts/MCP_TOOLS.md)
+- [Snapshot JSON Schema](contracts/review-snapshot.schema.json)
+- [Review result JSON Schema](contracts/review-result.schema.json)
+- [Shared review policy](contracts/REVIEW_POLICY.md)
+- [ChatGPT Web draft](chatgpt/skills/github-pr-review/SKILL.md)
+- [Gemini Web draft](gemini-web-skill/SKILL.md)
+- [G0–G4 acceptance criteria](tests/ACCEPTANCE_MATRIX.md)
+- [Source references](sources/SOURCES.md)
+
+## Initial scope
+
+MCP provides **read-only** evidence. Neither Web client may push code, post a PR review, merge, approve or execute repository code. Fail closed when auth, SHA pinning, coverage or diff evidence cannot be verified. No live MCP deployment exists; the MCP URL is a placeholder.
+
+## Gate
+
+G0 (live ChatGPT Web + Gemini Web Skill-to-MCP orchestration) is unverified. Do not advance to implementation or deployment without a recorded outcome. The schemas and Skills are **proposals**, not operational integrations.
+
+
+## Design Revision R1 (v0.2, 2026-10-16)
+
+Independent design review of PR #1 found 4 High + 4 Medium issues. The proposed correction and decision mapping are in [docs/REVISION_R1_20261016.md](docs/REVISION_R1_20261016.md). The v0.2 Schema, read-only semantic validation Receipt and redaction safeguards supersede earlier examples. **Not independently accepted; not implemented or deployed.** ChatGPT plugin root is [chatgpt/](chatgpt/) with .codex-plugin/plugin.json and .mcp.json.
+
+**R1 follow-up:** MCP tool sample version normalized to v0.2; Gemini Gem fallback instructions include the server-side Receipt requirement.
+
+
+## R2 limited correction — independent recheck
+
+R1-IR-001..005 are addressed by a second design/contract proposal: [R2 design correction](docs/REVISION_R2_20261016.md). Added Draft2020-12 preflight, LEFT/FILE_SPAN delivered-line checks, required Codex plugin fields, a nested Receipt envelope, and unambiguous fingerprint identity rules. New offline Node/Python tests and [CI](.github/workflows/offline-contracts.yml) do not constitute deployed MCP or independently accepted closure.
+
+**R2-FIX-001:** GitHub Actions caught a missing RFC3339 date-time checker; the offline schema gate now rejects missing format support and installs jsonschema[format] explicitly. CI pass is required before independent re-review.
+
+## R2-IR-NEW-001/002 limited correction
+
+See [two-ledger digest and Receipt identity contract](contracts/MCP_TOOLS.md) and [R2 acceptance regression cases](tests/ACCEPTANCE_MATRIX.md). Snapshot acquisition and per-client evidence delivery now have distinct digest/epoch validation; Envelope/Receipt Snapshot identity must match authenticated request. The changes remain pending independent recheck and runtime G0–G4.
+
+
+### R2-IR-NEW-003 limited correction
+
+The offline reference now derives acquisition and delivery digests from Canonical Payload v2 covering the entire validated Snapshot (excluding its own digest) and every delivered evidence event property/key. See the full contract in contracts/MCP_TOOLS.md and mutation test matrix in tests/ACCEPTANCE_MATRIX.md. Git original-source provenance, actual emitted bytes and cross-tenant authority are still unproven. Draft PR remains open for independent review.
+
+
+### R2-IR-NEW-003-F01/F02 limited correction
+
+Sparse arrays and non-JSON record properties are now fail-closed in the canonical reference encoder. Independent fixed UTF-8 / SHA-256 golden test vectors cover numeric, Unicode ordering, nested arrays, unknown event fields, and capture/delivery domains. See tests/canonical-golden-vectors.json and the R2-IR-NEW-003-F01/F02 contract in contracts/MCP_TOOLS.md. Draft PR remains unmerged and awaiting independent recheck; production G0-G4 unproven.
+
+
+### F01-NEW-001/002 root ledger follow-up
+
+The F01 independent recheck detected inherited, unsealed evidence and root getter hazards. The offline validator now checks ledger-root own property descriptors/prototype, builds a detached canonical evidence Map once, and uses it for both delivery digests and Finding/attestation lookup. See contracts/MCP_TOOLS.md and the negative regression tests. Draft PR remains unmerged; G0-G4 and production MCP safeguards remain unproven.
+
+### F01-R3-NEW-001 limited correction
+
+Detached delivery records are now deep canonical-validated and type-checked before numeric sorting or digest regex processing. Nested valueOf/toString getter side effects are forbidden and regression-tested. F01-NEW-001 received limited independent acceptance, while F01-NEW-002 remains pending fresh recheck. Draft PR and G0-G4 pending state are unchanged.

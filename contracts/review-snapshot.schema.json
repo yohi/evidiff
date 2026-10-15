@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evidiff.invalid/schemas/review-snapshot.v0.2.json",
+  "title": "Evidiff Snapshot v0.2 — proposed, not implemented",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "repository_id",
+    "repository",
+    "pull_request_number",
+    "base_sha",
+    "head_sha",
+    "merge_base_sha",
+    "selection_policy_id",
+    "state",
+    "created_at",
+    "files",
+    "evidence_coverage",
+    "evidence_ledger_digest",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repository_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[^/]+/[^/]+$"
+    },
+    "pull_request_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "head_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "merge_base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "selection_policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state": {
+      "enum": [
+        "READY",
+        "PARTIAL",
+        "FAILED",
+        "STALE"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "previous_path",
+          "status",
+          "scope",
+          "patch_available",
+          "patch_sha256",
+          "binary",
+          "additions",
+          "deletions",
+          "line_map_available",
+          "content_state",
+          "scope_reason"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "previous_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "added",
+              "modified",
+              "removed",
+              "renamed",
+              "copied",
+              "changed",
+              "unknown"
+            ]
+          },
+          "scope": {
+            "enum": [
+              "INCLUDED",
+              "EXCLUDED_BY_POLICY",
+              "UNAVAILABLE"
+            ]
+          },
+          "patch_available": {
+            "type": "boolean"
+          },
+          "patch_sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "binary": {
+            "type": "boolean"
+          },
+          "additions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "deletions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "line_map_available": {
+            "type": "boolean"
+          },
+          "content_state": {
+            "enum": [
+              "AVAILABLE",
+              "REDACTED",
+              "BLOCKED",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "scope_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "evidence_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reported_changed_files",
+        "enumerated_changed_files",
+        "included",
+        "excluded_by_policy",
+        "unavailable",
+        "excluded_reasons",
+        "diff_integrity",
+        "line_anchor_integrity",
+        "manifest_digest"
+      ],
+      "properties": {
+        "reported_changed_files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "enumerated_changed_files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "included": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_by_policy": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unavailable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "diff_integrity": {
+          "enum": [
+            "VERIFIED",
+            "UNVERIFIED",
+            "INCONSISTENT"
+          ]
+        },
+        "line_anchor_integrity": {
+          "enum": [
+            "VERIFIED",
+            "PARTIAL",
+            "FAILED"
+          ]
+        },
+        "manifest_digest": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "evidence_ledger_digest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "READY"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_ledger_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  ]
+}

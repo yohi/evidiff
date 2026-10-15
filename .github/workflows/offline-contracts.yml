@@ -1,0 +1,32 @@
+name: Evidiff Offline Contract Tests
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [docs/bootstrap-design-v0.1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-contracts:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - name: Checkout pinned PR code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Draft2020-12 validator
+        run: python -m pip install --disable-pip-version-check 'jsonschema[format]==4.26.0'
+      - name: Check JSON Schema, receipt envelope, and plugin fields
+        run: python -m unittest discover -s tests -p 'test_contract_schema.py' -v
+      - name: Run offline semantic-validator Node tests
+        run: node --test tests/semantic-validator.spec.mjs

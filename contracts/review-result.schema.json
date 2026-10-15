@@ -1,0 +1,592 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evidiff.invalid/schemas/review-result.v0.2.json",
+  "title": "Model-submitted review proposal v0.2 — never authoritative until validated",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "model_family",
+    "review_policy",
+    "review_status",
+    "head_sha",
+    "base_sha",
+    "merge_base_sha",
+    "reviewed_paths",
+    "review_attestations",
+    "findings",
+    "limitations",
+    "evidence_ledger_digest",
+    "evidence_delivery_epoch"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_family": {
+      "enum": [
+        "chatgpt",
+        "gemini"
+      ]
+    },
+    "model_version": {
+      "type": "string"
+    },
+    "review_policy": {
+      "const": "review-policy-v0.2"
+    },
+    "review_status": {
+      "enum": [
+        "COMPLETE",
+        "PARTIAL",
+        "FAILED",
+        "STALE"
+      ]
+    },
+    "head_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "merge_base_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40,64}$"
+    },
+    "reviewed_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "review_attestations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "review_proof_refs",
+          "reviewed_scope",
+          "analysis_complete"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "review_proof_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "reviewed_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "analysis_complete": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding_id",
+          "title",
+          "severity",
+          "category",
+          "verification",
+          "lifecycle",
+          "failure_scenario",
+          "causal_chain",
+          "impact",
+          "recommendation",
+          "root_cause_key",
+          "trigger_class",
+          "evidence"
+        ],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "category": {
+            "enum": [
+              "correctness",
+              "security",
+              "compatibility",
+              "requirements",
+              "regression",
+              "performance",
+              "concurrency",
+              "data_integrity",
+              "error_handling",
+              "tests",
+              "other"
+            ]
+          },
+          "verification": {
+            "enum": [
+              "CONFIRMED_SOURCE",
+              "CONFIRMED_RUNTIME",
+              "PENDING_VERIFICATION",
+              "REJECTED"
+            ]
+          },
+          "lifecycle": {
+            "enum": [
+              "ACTIVE",
+              "RESOLVED",
+              "REOPENED"
+            ]
+          },
+          "failure_scenario": {
+            "type": "string",
+            "minLength": 1
+          },
+          "causal_chain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "impact": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recommendation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "root_cause_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "trigger_class": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "path",
+                    "previous_path",
+                    "head_sha",
+                    "side",
+                    "line",
+                    "hunk_id",
+                    "evidence_ref",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "DIFF_LINE"
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "previous_path": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "side": {
+                      "enum": [
+                        "LEFT",
+                        "RIGHT"
+                      ]
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "hunk_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "path",
+                    "head_sha",
+                    "ref_side",
+                    "start_line",
+                    "end_line",
+                    "evidence_ref",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "FILE_SPAN"
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "ref_side": {
+                      "enum": [
+                        "HEAD",
+                        "BASE",
+                        "MERGE_BASE"
+                      ]
+                    },
+                    "start_line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "end_line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "head_sha",
+                    "evidence_ref",
+                    "source_type",
+                    "summary",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "PR_LEVEL"
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "source_type": {
+                      "enum": [
+                        "PR_METADATA",
+                        "ISSUE",
+                        "CI",
+                        "CROSS_FILE",
+                        "REQUIREMENT",
+                        "OTHER"
+                      ]
+                    },
+                    "summary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "minItems": 1
+          },
+          "counterevidence": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "path",
+                    "previous_path",
+                    "head_sha",
+                    "side",
+                    "line",
+                    "hunk_id",
+                    "evidence_ref",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "DIFF_LINE"
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "previous_path": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "side": {
+                      "enum": [
+                        "LEFT",
+                        "RIGHT"
+                      ]
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "hunk_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "path",
+                    "head_sha",
+                    "ref_side",
+                    "start_line",
+                    "end_line",
+                    "evidence_ref",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "FILE_SPAN"
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "ref_side": {
+                      "enum": [
+                        "HEAD",
+                        "BASE",
+                        "MERGE_BASE"
+                      ]
+                    },
+                    "start_line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "end_line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "head_sha",
+                    "evidence_ref",
+                    "source_type",
+                    "summary",
+                    "redaction_state"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "PR_LEVEL"
+                    },
+                    "head_sha": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40,64}$"
+                    },
+                    "evidence_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "source_type": {
+                      "enum": [
+                        "PR_METADATA",
+                        "ISSUE",
+                        "CI",
+                        "CROSS_FILE",
+                        "REQUIREMENT",
+                        "OTHER"
+                      ]
+                    },
+                    "summary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "redaction_state": {
+                      "enum": [
+                        "NONE",
+                        "REDACTED",
+                        "BLOCKED"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "reviewer_notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidence_ledger_digest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence_delivery_epoch": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "review_status": {
+            "const": "COMPLETE"
+          }
+        },
+        "required": [
+          "review_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_ledger_digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  ]
+}
