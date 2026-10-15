@@ -140,7 +140,8 @@ run('FILE_SPAN within actually delivered span',f=>{addFileSpan(f)},true);
 run('FILE_SPAN reverse interval',f=>{addFileSpan(f,{start_line:20,end_line:10})},false,'FILE_SPAN_INVALID');
 run('FILE_SPAN outside delivered 1-10, inside file 1-100',f=>{addFileSpan(f,{start_line:50,end_line:60})},false,'FILE_SPAN_INVALID');
 run('FILE_SPAN prior commit mismatch',f=>{addFileSpan(f);f.ledger['ev-span'].commit_sha=SHA('e')},false,'FILE_SPAN_INVALID');
-run('FILE_SPAN unverified exposed digest',f=>{addFileSpan(f);f.ledger['ev-span'].exposed_digest=null},false,'FILE_SPAN_INVALID');
+// Invalid delivered-event digest is rejected at the sealed ledger boundary BEFORE anchor checking.
+run('FILE_SPAN unverified exposed digest',f=>{addFileSpan(f);f.ledger['ev-span'].exposed_digest=null},false,'DELIVERY_LEDGER_INVALID');
 run('normal modified file valid LEFT with previous_path null',f=>{addDiff(f,'LEFT')},true);
 run('normal modified file valid RIGHT',f=>{addDiff(f,'RIGHT')},true);
 run('deleted file valid LEFT with previous_path null',f=>{f.snapshot.files[0].status='removed';addDiff(f,'LEFT')},true);
