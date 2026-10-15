@@ -1,0 +1,92 @@
+[
+  {
+    "name": "unicode-utf16-key-order",
+    "kind": "plain",
+    "input": {
+      "z": [
+        null,
+        true,
+        "é"
+      ],
+      "a": {
+        "": 2,
+        "𐀀": 1
+      },
+      "num": 1e-7,
+      "neg": -1.25
+    },
+    "expected_utf8_text": "{\"a\":{\"𐀀\":1,\"\":2},\"neg\":-1.25,\"num\":1e-7,\"z\":[null,true,\"é\"]}",
+    "expected_sha256": "77bdc697c6b7e7cdc43452c3b6138fce01e04f0403cffce25abeb9c18b18b3b8"
+  },
+  {
+    "name": "nested-array-null-escape",
+    "kind": "plain",
+    "input": {
+      "zero": 0,
+      "num": 1,
+      "nested": {
+        "b": [
+          "x",
+          {
+            "q": "line\nbreak",
+            "a": 0
+          }
+        ],
+        "a": []
+      }
+    },
+    "expected_utf8_text": "{\"nested\":{\"a\":[],\"b\":[\"x\",{\"a\":0,\"q\":\"line\\nbreak\"}]},\"num\":1,\"zero\":0}",
+    "expected_sha256": "a915bd4db703f02add2c58458219a2cf9a9967ed16f8473661b247eb50b2ab2b"
+  },
+  {
+    "name": "capture-domain-and-whole-object",
+    "kind": "capture",
+    "input": {
+      "snapshot_id": "snap",
+      "pull_request_number": 1,
+      "files": [
+        {
+          "binary": false,
+          "line_map_available": true
+        }
+      ],
+      "metadata": {
+        "nullable": null
+      },
+      "evidence_ledger_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "expected_utf8_text": "{\"digest_domain\":\"evidiff.capture.v2\",\"digest_encoding\":\"canonical-json-v2\",\"snapshot\":{\"files\":[{\"binary\":false,\"line_map_available\":true}],\"metadata\":{\"nullable\":null},\"pull_request_number\":1,\"snapshot_id\":\"snap\"}}",
+    "expected_sha256": "ee85921df94cbf887c2a1be800df47d0816007225c7565a60104ce0a63a40d5d"
+  },
+  {
+    "name": "delivery-domain-with-unknown-metadata",
+    "kind": "delivery",
+    "input": {
+      "snapshot": {
+        "snapshot_id": "snap",
+        "head_sha": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "evidence_ledger_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "ledger": {
+        "ev1": {
+          "delivery_seq": 1,
+          "delivered": true,
+          "snapshot_id": "snap",
+          "head_sha": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+          "exposed_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "redaction_state": "NONE",
+          "old_path": "prev.js",
+          "total_lines": 3,
+          "extra": {
+            "arr": [
+              null,
+              2
+            ]
+          }
+        }
+      }
+    },
+    "expected_utf8_text": "{\"acquisition_digest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"digest_domain\":\"evidiff.delivery.v2\",\"digest_encoding\":\"canonical-json-v2\",\"entries\":[{\"delivered\":true,\"delivery_seq\":1,\"exposed_digest\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"extra\":{\"arr\":[null,2]},\"head_sha\":\"hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh\",\"id\":\"ev1\",\"old_path\":\"prev.js\",\"redaction_state\":\"NONE\",\"snapshot_id\":\"snap\",\"total_lines\":3}],\"epoch\":1,\"snapshot_id\":\"snap\"}",
+    "expected_sha256": "76ff00e7fc5c7360ffd922a4c5d2c88e204cebc85b0303b4b28f70378334b594"
+  }
+]

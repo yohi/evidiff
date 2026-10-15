@@ -35,7 +35,7 @@ function schemaGate(snapshot, review) {
  * This is a local deterministic encoding, NOT a claim of RFC 8785 compliance.
  * Both digest domains must use the exact same versioned normalization.
  */
-function canonicalJSON(value) {
+export function canonicalJSON(value) {
   const ancestors=new Set();
   function encode(x) {
     if(x===null || typeof x==='string' || typeof x==='boolean') return JSON.stringify(x);
@@ -45,23 +45,57 @@ function canonicalJSON(value) {
     }
     if(typeof x!=='object')throw new TypeError('NOT_JSON_VALUE');
     if(ancestors.has(x))throw new TypeError('CYCLIC_JSON');
-    if(!Array.isArray(x) && Object.getPrototypeOf(x)!==Object.prototype &&
+    if(Array.isArray(x)) {
+      if(Object.getPrototypeOf(x)!==Array.prototype)throw new TypeError('NOT_PLAIN_ARRAY');
+      // Array.map() skips holes and would encode [] and Array(1) identically.
+      const own=Reflect.ownKeys(x);
+      if(own.length!==x.length+1 || x.length>100000)
+        throw new TypeError('NON_JSON_ARRAY_KEYS');
+      ancestors.add(x);
+      const elements=[];
+      for(let i=0;i<x.length;i++) {
+        const d=Object.getOwnPropertyDescriptor(x,String(i));
+        if(!d || !d.enumerable || !Object.hasOwn(d,'value'))
+          throw new TypeError('SPARSE_OR_ACCESSOR_ARRAY');
+        elements.push(encode(d.value));
+      }
+      ancestors.delete(x);
+      return '['+elements.join(',')+']';
+    }
+    if(Object.getPrototypeOf(x)!==Object.prototype &&
        Object.getPrototypeOf(x)!==null) throw new TypeError('NOT_PLAIN_OBJECT');
     ancestors.add(x);
-    let encoded;
-    if(Array.isArray(x)) {
-      encoded='['+x.map(encode).join(',')+']';
-    } else {
-      encoded='{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+encode(x[k])).join(',')+'}';
-    }
+    const keys=Reflect.ownKeys(x);
+    if(keys.some(k=>typeof k!=='string'))throw new TypeError('SYMBOL_OBJECT_KEY');
+    const fields=keys.sort().map(k=>{
+      const d=Object.getOwnPropertyDescriptor(x,k);
+      if(!d || !d.enumerable || !Object.hasOwn(d,'value'))
+        throw new TypeError('NON_JSON_OBJECT_PROPERTY');
+      return JSON.stringify(k)+':'+encode(d.value);
+    });
     ancestors.delete(x);
-    return encoded;
+    return '{'+fields.join(',')+'}';
   }
   return encode(value);
 }
-function canonicalDigest(value) {
+export function canonicalDigest(value) {
   try {return createHash('sha256').update(canonicalJSON(value),'utf8').digest('hex');}
   catch {return null;}
+}
+/** Strict shallow copy without invoking accessors or discarding hidden fields. */
+function ownDataOnly(x) {
+  if(!x || typeof x!=='object' || Array.isArray(x) ||
+     (Object.getPrototypeOf(x)!==Object.prototype && Object.getPrototypeOf(x)!==null))
+    throw new TypeError('NOT_PLAIN_RECORD');
+  const out=Object.create(null);
+  for(const key of Reflect.ownKeys(x)) {
+    if(typeof key!=='string')throw new TypeError('SYMBOL_RECORD_KEY');
+    const d=Object.getOwnPropertyDescriptor(x,key);
+    if(!d || !d.enumerable || !Object.hasOwn(d,'value'))
+      throw new TypeError('NON_JSON_RECORD_FIELD');
+    out[key]=d.value;
+  }
+  return out;
 }
 
 /**
@@ -70,14 +104,15 @@ function canonicalDigest(value) {
  * identity, file, diff, coverage, status, and limitations fields are included.
  */
 export function captureDigest(snapshot) {
-  if(!snapshot || typeof snapshot!=='object' || Array.isArray(snapshot))return null;
-  const withoutSelf={...snapshot};
-  delete withoutSelf.evidence_ledger_digest;
-  return canonicalDigest({
-    digest_domain:'evidiff.capture.v2',
-    digest_encoding:'canonical-json-v2',
-    snapshot:withoutSelf
-  });
+  try {
+    const withoutSelf=ownDataOnly(snapshot);
+    delete withoutSelf.evidence_ledger_digest;
+    return canonicalDigest({
+      digest_domain:'evidiff.capture.v2',
+      digest_encoding:'canonical-json-v2',
+      snapshot:withoutSelf
+    });
+  } catch {return null;}
 }
 /**
  * Delivery ledger is an ordered server-owned sequence; each record hashes ALL
@@ -88,9 +123,12 @@ function orderedEntries(ledger,snapshot) {
   if(!ledger || typeof ledger!=='object' || Array.isArray(ledger))return null;
   const entries=[];
   for(const [id,record] of Object.entries(ledger)) {
-    if(!record || typeof record!=='object' || Array.isArray(record) ||
-       Object.hasOwn(record,'id') || !id) return null;
-    entries.push({...record,id});
+    try {
+      const copy=ownDataOnly(record);
+      if(Object.hasOwn(copy,'id') || !id)return null;
+      copy.id=id;
+      entries.push(copy);
+    } catch {return null;}
   }
   entries.sort((a,b)=>a.delivery_seq-b.delivery_seq);
   if(!entries.every((e,i)=>Number.isSafeInteger(e.delivery_seq)&&e.delivery_seq===i+1&&

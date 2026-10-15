@@ -175,5 +175,45 @@ class TestContracts(unittest.TestCase):
         self.assertIn("dependencies:",yaml)
 
 
+
+class TestIndependentCanonicalOracle(unittest.TestCase):
+    """Oracle hashes were precomputed independently from manually authored UTF-8 text."""
+
+    @classmethod
+    def setUpClass(cls):
+        import hashlib
+        cls.sha256 = hashlib.sha256
+        cls.vectors = json.loads(
+            (ROOT / "tests" / "canonical-golden-vectors.json").read_text(encoding="utf-8")
+        )
+        cls.expected = {
+            "unicode-utf16-key-order": "77bdc697c6b7e7cdc43452c3b6138fce01e04f0403cffce25abeb9c18b18b3b8",
+            "nested-array-null-escape": "a915bd4db703f02add2c58458219a2cf9a9967ed16f8473661b247eb50b2ab2b",
+            "capture-domain-and-whole-object": "ee85921df94cbf887c2a1be800df47d0816007225c7565a60104ce0a63a40d5d",
+            "delivery-domain-with-unknown-metadata": "76ff00e7fc5c7360ffd922a4c5d2c88e204cebc85b0303b4b28f70378334b594"
+        }
+
+    def test_independent_fixed_utf8_golden_sha256(self):
+        self.assertEqual(set(v["name"] for v in self.vectors), set(self.expected))
+        for v in self.vectors:
+            with self.subTest(vector=v["name"]):
+                self.assertEqual(v["expected_sha256"], self.expected[v["name"]])
+                actual=self.sha256(v["expected_utf8_text"].encode("utf-8")).hexdigest()
+                self.assertEqual(actual,self.expected[v["name"]])
+
+    def test_utf16_sort_order_and_escaped_line_delimiters(self):
+        v={x["name"]: x for x in self.vectors}
+        self.assertIn('"\U00010000":1,"\ue000":2',v["unicode-utf16-key-order"]["expected_utf8_text"])
+        self.assertIn('"q":"line\\nbreak"',v["nested-array-null-escape"]["expected_utf8_text"])
+        self.assertIn('"num":1e-7',v["unicode-utf16-key-order"]["expected_utf8_text"])
+
+    def test_capture_and_delivery_domain_separation(self):
+        v={x["name"]:x for x in self.vectors}
+        self.assertIn('"digest_domain":"evidiff.capture.v2"',v["capture-domain-and-whole-object"]["expected_utf8_text"])
+        self.assertIn('"digest_domain":"evidiff.delivery.v2"',v["delivery-domain-with-unknown-metadata"]["expected_utf8_text"])
+        self.assertNotEqual(self.expected["capture-domain-and-whole-object"],
+                            self.expected["delivery-domain-with-unknown-metadata"])
+
+
 if __name__ == "__main__":
     unittest.main()

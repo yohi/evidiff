@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateSemantic, captureDigest, deliveryDigest, validateToolEnvelope } from './semantic-validator.mjs';
+import { validateSemantic, captureDigest, deliveryDigest, validateToolEnvelope, canonicalJSON, canonicalDigest } from './semantic-validator.mjs';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+const GOLDEN_VECTORS=JSON.parse(readFileSync(new URL('./canonical-golden-vectors.json',import.meta.url),'utf8'));
 
 const SHA = c => c.repeat(40);
 const clone = x => structuredClone(x);
@@ -362,4 +365,120 @@ test('capture digest cannot be substituted for delivery digest',()=>{
   f.live.evidence_ledger_digest=f.snapshot.evidence_ledger_digest;
   const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
   assert.ok(r.reason_codes.includes('DELIVERY_DIGEST_MISMATCH'));
+});
+
+
+test('fixed independent UTF-8 canonical byte and SHA-256 golden vectors',()=>{
+  // Canonical bytes were handwritten; hash values computed independently by
+  // Python hashlib, not produced by canonicalJSON/canonicalDigest under test.
+  for(const v of GOLDEN_VECTORS){
+    let payload;
+    if(v.kind==='plain')payload=v.input;
+    else if(v.kind==='capture'){
+      const snapshot={...v.input};
+      delete snapshot.evidence_ledger_digest;
+      payload={digest_domain:'evidiff.capture.v2',digest_encoding:'canonical-json-v2',snapshot};
+      assert.equal(captureDigest(v.input),v.expected_sha256,v.name);
+    } else if(v.kind==='delivery'){
+      const {snapshot,ledger}=v.input;
+      const entry={...ledger.ev1,id:'ev1'};
+      payload={digest_domain:'evidiff.delivery.v2',digest_encoding:'canonical-json-v2',
+        snapshot_id:snapshot.snapshot_id,acquisition_digest:snapshot.evidence_ledger_digest,
+        epoch:1,entries:[entry]};
+      assert.equal(deliveryDigest(ledger,snapshot),v.expected_sha256,v.name);
+    } else assert.fail('unknown golden fixture kind');
+    assert.equal(canonicalJSON(payload),v.expected_utf8_text,v.name+' bytes');
+    assert.equal(canonicalDigest(payload),v.expected_sha256,v.name+' digest');
+    assert.equal(createHash('sha256').update(Buffer.from(v.expected_utf8_text,'utf8')).digest('hex'),
+      v.expected_sha256,v.name+' independent hash');
+  }
+});
+test('sparse arrays cannot collide with empty or null arrays',()=>{
+  assert.equal(canonicalJSON([]),'[]');
+  for(const hole of [Array(1),[,],[1,,3]]){
+    assert.throws(()=>canonicalJSON(hole));
+    assert.equal(canonicalDigest(hole),null);
+  }
+  assert.equal(canonicalJSON([null]),'[null]');
+  assert.notEqual(canonicalDigest([]),canonicalDigest([null]));
+});
+test('delivery event nested sparse array fails closed and cannot claim COMPLETE',()=>{
+  const f=fixture();
+  f.ledger['ev-a'].extra=[];
+  syncDelivery(f);
+  const sealed=f.review.evidence_ledger_digest;
+  f.ledger['ev-a'].extra=Array(1);
+  assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+  assert.notEqual(deliveryDigest(f.ledger,f.snapshot),sealed);
+  const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(r.valid,false);
+  assert.notEqual(r.review_status,'COMPLETE');
+  assert.ok(r.reason_codes.includes('DELIVERY_LEDGER_INVALID'),JSON.stringify(r));
+});
+test('invalid nested arrays in Snapshot cannot produce a valid capture digest',()=>{
+  const f=fixture();
+  f.snapshot.files[0].extra={invalid:Array(2)};
+  assert.equal(captureDigest(f.snapshot),null);
+  const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+  assert.equal(r.valid,false);
+  assert.notEqual(r.review_status,'COMPLETE');
+});
+test('nested arrays with symbol/accessor/non-index/hidden keys are invalid',()=>{
+  for(const mutate of [
+    a=>{a.extra='secret';},
+    a=>{a[Symbol('secret')]='value';},
+    a=>Object.defineProperty(a,'0',{get:()=>42,configurable:true,enumerable:true}),
+    a=>Object.defineProperty(a,'0',{value:42,configurable:true,enumerable:false})
+  ]){
+    const a=[42];
+    mutate(a);
+    assert.throws(()=>canonicalJSON({nested:{a}}));
+    assert.equal(canonicalDigest({nested:{a}}),null);
+  }
+});
+test('non-JSON object getters, symbols, hidden properties, cycles and non-finite values rejected',()=>{
+  const accessor={};Object.defineProperty(accessor,'x',{enumerable:true,get:()=>1});
+  const hidden={};Object.defineProperty(hidden,'secret',{enumerable:false,value:'x'});
+  const symbol={a:1};symbol[Symbol('secret')]='x';
+  const cycle={};cycle.self=cycle;
+  for(const data of [accessor,hidden,symbol,cycle,{bad:undefined},{num:NaN},{num:Infinity}]){
+    assert.throws(()=>canonicalJSON(data));
+    assert.equal(canonicalDigest(data),null);
+  }
+});
+test('Snapshot root accessor/nonenumerable field cannot disappear from sealed capture',()=>{
+  for(const mutate of [
+    obj=>Object.defineProperty(obj,'extra',{get:()=>1,enumerable:true}),
+    obj=>Object.defineProperty(obj,'extra',{value:1,enumerable:false}),
+    obj=>{obj[Symbol('hidden')]=1;}
+  ]){
+    const f=fixture();
+    mutate(f.snapshot);
+    assert.equal(captureDigest(f.snapshot),null);
+  }
+});
+test('delivery event accessor/nonenumerable field cannot disappear from ledger',()=>{
+  for(const mutate of [
+    obj=>Object.defineProperty(obj,'extra',{get:()=>1,enumerable:true}),
+    obj=>Object.defineProperty(obj,'extra',{value:1,enumerable:false}),
+    obj=>{obj[Symbol('hidden')]=1;}
+  ]){
+    const f=fixture();
+    mutate(f.ledger['ev-a']);
+    assert.equal(deliveryDigest(f.ledger,f.snapshot),null);
+    const r=validateSemantic(f.snapshot,f.review,f.live,f.ledger);
+    assert.equal(r.valid,false);
+  }
+});
+test('permuting plain object keys does not change independent golden output',()=>{
+  const original=structuredClone(GOLDEN_VECTORS[0].input);
+  const reverse=o=>Object.fromEntries(Object.entries(o).reverse());
+  const reordered=reverse(original);
+  reordered.a=reverse(original.a);
+  assert.equal(canonicalJSON(reordered),GOLDEN_VECTORS[0].expected_utf8_text);
+  assert.equal(canonicalDigest(reordered),GOLDEN_VECTORS[0].expected_sha256);
+});
+test('array order changes digest and object member order does not',()=>{
+  assert.notEqual(canonicalDigest({items:[null,1]}),canonicalDigest({items:[1,null]}));
+  assert.equal(canonicalDigest({z:1,a:null}),canonicalDigest({a:null,z:1}));
 });

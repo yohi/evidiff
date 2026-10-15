@@ -47,3 +47,8 @@ See [two-ledger digest and Receipt identity contract](contracts/MCP_TOOLS.md) an
 ### R2-IR-NEW-003 limited correction
 
 The offline reference now derives acquisition and delivery digests from Canonical Payload v2 covering the entire validated Snapshot (excluding its own digest) and every delivered evidence event property/key. See the full contract in contracts/MCP_TOOLS.md and mutation test matrix in tests/ACCEPTANCE_MATRIX.md. Git original-source provenance, actual emitted bytes and cross-tenant authority are still unproven. Draft PR remains open for independent review.
+
+
+### R2-IR-NEW-003-F01/F02 limited correction
+
+Sparse arrays and non-JSON record properties are now fail-closed in the canonical reference encoder. Independent fixed UTF-8 / SHA-256 golden test vectors cover numeric, Unicode ordering, nested arrays, unknown event fields, and capture/delivery domains. See tests/canonical-golden-vectors.json and the R2-IR-NEW-003-F01/F02 contract in contracts/MCP_TOOLS.md. Draft PR remains unmerged and awaiting independent recheck; production G0-G4 unproven.

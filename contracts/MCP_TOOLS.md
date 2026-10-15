@@ -198,3 +198,25 @@ The reference hashes synthetic JSON objects and delivery entries; a production s
 ### Test contract
 
 Negative regression tests alter pull_request_number, binary, line_map_available, every major Snapshot field, old_path, total_lines, commit/ref-side, line/hunk, delivery intervals, redaction and event key, and assert no COMPLETE. Positive tests verify canonical member-order independence and distinct capture/delivery domains. This is a proposal-only revision pending independent limited recheck on the new fixed HEAD.
+
+
+## R2-IR-NEW-003-F01 / F02 — Canonical JSON inputs and independent oracle
+
+Scope: F01 (Medium sparse-array collision) and F02 (Low self-referential test oracle). This section supersedes older assertions that every JavaScript array is valid JSON. The implementation remains an offline contract reference, not a production MCP.
+
+### Canonical input / fail closed
+
+- Ordinary dense arrays only. All numeric indices 0 through length-1 must exist as own, enumerable data properties. Sparse arrays with missing indices MUST be rejected, not skipped or converted into shorter arrays. An empty array differs from [null].
+- Arrays must use Array.prototype, have no extra own properties except length and numeric indices, and have no symbol keys, getters, non-enumerable index properties or subclass prototypes. The offline implementation has a bounded maximum array length.
+- Plain/null-prototype objects contain only own enumerable string-keyed data properties. Reject symbol keys, hidden fields, getters/setters, undefined/functions/BigInt, non-finite numbers, cycles and exotic object types. The encoder must not execute toJSON hooks.
+- Snapshot root capture and delivery record copying must inspect original property descriptors. Hidden fields/getters may not disappear due to object spreading. A malformed canonical payload yields a thrown error from canonicalJSON or null from captureDigest/deliveryDigest, and may NEVER yield a validated COMPLETE result.
+- Object keys sort recursively by JavaScript UTF-16 code unit ordering. Arrays preserve order. These local canonical-json-v2 semantics are explicitly NOT a claim of RFC 8785 interoperability; production cross-language support needs normative vectors and independent security validation.
+- Trusted production storage and input normalization must additionally reject malicious Proxy behavior; the offline reference does not establish resistance to arbitrary code execution via untrusted JS objects.
+
+### Independent frozen known-answer tests
+
+tests/canonical-golden-vectors.json has four hand-authored canonical UTF-8 expected strings and independently calculated Python hashlib SHA-256 values, covering Unicode U+10000 versus U+E000 ordering, nested arrays/null/newline escapes, numeric 1e-7, capture-domain metadata and delivery-domain fields including old_path/total_lines and arbitrary extra metadata.
+
+Node asserts exact emitted bytes, SHA-256 and capture/delivery digests against immutable known-answer constants. Python independently recomputes SHA-256 from the handwritten expected UTF-8 strings and compares with separately hardcoded digests; no test oracle derives expected bytes from the code under test. Negative cases explicitly include sparse arrays, event metadata mutation, non-index properties, symbols, accessors, hidden properties, invalid JSON values and non-COMPLETE on malformed digest input.
+
+These tests establish limited synthetic reference behavior only. Actual immutable Git objects, emitted-byte provenance, protected seals, authentic principal-scoped ledger and G0–G4 remain NOT_PROVEN. An independent reviewer must recheck F01/F02 and the fixed CI result before proposal-level closure.

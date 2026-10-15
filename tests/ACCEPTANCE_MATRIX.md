@@ -152,3 +152,20 @@ All are **offline synthetic contract tests**, not runtime GitHub/MCP proofs.
 | NEW003-I | Missing independent Git raw object or actual emitted-byte check | Still NOT_PROVEN at G1/G2 |
 
 Only offline synthetic contract tests. No evidence that G0–G4 has been executed.
+
+## R2-IR-NEW-003-F01/F02 targeted regression matrix
+
+| ID | Case | Expected |
+|---|---|---|
+| F01-01 | Empty array versus sparse Array(1), [,], [1,,3] | Sparse rejected, never same digest |
+| F01-02 | Delivered event extra sparse array after epoch seal | null digest, no COMPLETE |
+| F01-03 | Snapshot nested sparse array | null capture digest / no COMPLETE |
+| F01-04 | Array own non-index, symbol, hidden index or accessor | Invalid JSON structure |
+| F01-05 | Snapshot root/event accessor, non-enumerable or symbol key | Reject before shallow copy |
+| F01-06 | Circular/undefined/NaN/Infinity/exotic members | Fail closed |
+| F02-01 | Unicode UTF-16 key order U+10000 before U+E000 | Fixed UTF-8 and SHA-256 match |
+| F02-02 | Newline escape, numeric 1e-7, null/nested array | Fixed UTF-8 and digest match |
+| F02-03 | Capture and delivery domains with unknown metadata | Fixed SHA-256 match |
+| F02-04 | Object key reorder versus array element reorder | Key reorder stable; array reorder distinct |
+
+The independent oracle values were calculated from manually authored strings using Python hashlib, not canonicalJSON.
